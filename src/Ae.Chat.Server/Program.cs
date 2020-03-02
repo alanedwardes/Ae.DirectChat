@@ -18,6 +18,8 @@ namespace Ae.Speak.Server
         {
             var socket = new UdpClient(8100);
 
+            Console.WriteLine("Server started");
+
             var clients = new HashSet<IPEndPoint>();
 
             using (var random = new RNGCryptoServiceProvider())
