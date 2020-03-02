@@ -35,7 +35,7 @@ namespace Ae.Speak.Server
 
                     foreach (var client in clients)
                     {
-                        //if (!client.Equals(result.RemoteEndPoint))
+                        if (!client.Equals(result.RemoteEndPoint))
                         {
                             socket.SendAsync(result.Buffer, result.Buffer.Length, client);
                         }
