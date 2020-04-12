@@ -1,0 +1,43 @@
+<html>
+
+<head>
+    <title>Ae.Chat</title>
+</head>
+
+<style>
+    body {
+        font-family: sans-serif;
+    }
+
+    #audioGainSlider {
+        width: 512px;
+    }
+</style>
+
+<body>
+    <canvas id="volumeCanvas" width="512" height="64"></canvas>
+    <form>
+        <p><label for="audioGainSlider">Gain: <span id="audioGainValue"></span></label></p>
+        <p><input type="range" min="0" max="5" step="0.5" id="audioGainSlider" /></p>
+    </form>
+    <script src="dist/bundle.js"></script>
+    <script>
+        window.onload = function () {
+            ChatApp.ChatApp.Start();
+
+            setGainValue(1);
+
+            document.getElementById('audioGainSlider').addEventListener('input', function (event) {
+                setGainValue(event.srcElement.value);
+                ChatApp.ChatApp.SetGain(this.value);
+            });
+
+            function setGainValue(value) {
+                document.getElementById('audioGainSlider').value = value;
+                document.getElementById('audioGainValue').innerHTML = value;
+            }
+        };
+    </script>
+</body>
+
+</html>
