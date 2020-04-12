@@ -11,7 +11,7 @@ export class ChatApp {
         this.userMedia.SetGain(gain);
     }
 
-    public static async Start(): Promise<void> {
+    public static async Start(roomId : string): Promise<void> {
         const peerConnector : PeerConnector = new PeerConnector();
 
         const stream: MediaStream = await this.userMedia.RequestAccess();
@@ -22,7 +22,7 @@ export class ChatApp {
             return new AudioSample(this.userMedia.GetGain(), this.userMedia.SampleInput());
         }
 
-        const broker = new Broker("alantest");
+        const broker = new Broker(roomId);
         await broker.Open();
 
         peerConnector.OnHasIceCandidates = candidates => {

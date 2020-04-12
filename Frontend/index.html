@@ -23,7 +23,14 @@
     <script src="dist/bundle.js"></script>
     <script>
         window.onload = function () {
-            ChatApp.ChatApp.Start();
+            var roomId = window.location.hash;
+            if (roomId == "")
+            {
+                alert("Please specify a room ID");
+                return;
+            }
+
+            ChatApp.ChatApp.Start(roomId);
 
             setGainValue(1);
 
