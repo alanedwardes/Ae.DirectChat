@@ -11,8 +11,8 @@ export class UserMedia implements IUserMedia {
 
     public async RequestAccess(video: boolean): Promise<MediaStream> {
         let videoRequest: any = video ? {
-            width: { min: 1280 },
-            height: { min: 720 }
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
         } : false;
 
         const stream: MediaStream = await navigator.mediaDevices.getUserMedia({
