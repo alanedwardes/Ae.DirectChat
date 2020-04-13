@@ -6,6 +6,8 @@ export class UserMedia implements IUserMedia {
     private audioContext: AudioContext;
     private gainNode: GainNode;
     private analyserNode: AnalyserNode;
+    private localListenElement: HTMLAudioElement;
+    private currentStream: MediaStream;
 
     public async RequestAccess(): Promise<MediaStream> {
         const stream: MediaStream = await navigator.mediaDevices.getUserMedia({
@@ -14,7 +16,7 @@ export class UserMedia implements IUserMedia {
                 echoCancellation: false,
                 noiseSuppression: false
             },
-            video: false
+            video: true
         });
 
         // Lazy initialise the audio context
@@ -30,17 +32,30 @@ export class UserMedia implements IUserMedia {
 
         var combined = this.ProcessAudioTrackToMono(stream);
 
-        if (videoTracks.length > 0)
-        {
+        if (videoTracks.length > 0) {
             combined.addTrack(videoTracks[0]);
         }
 
+        this.currentStream = combined;
         return combined;
     }
 
-    public GetGain() : number {
-        if (this.gainNode == null)
-        {
+    public SetLocalListen(shouldListen: boolean) {
+        if (this.localListenElement == null){
+            this.localListenElement = document.createElement("audio");
+        }
+
+        if (shouldListen) {
+            this.localListenElement.srcObject = this.currentStream;
+            this.localListenElement.play();
+        }
+        else {
+            this.localListenElement.pause();
+        }
+    }
+
+    public GetGain(): number {
+        if (this.gainNode == null) {
             return 0;
         }
 
@@ -51,14 +66,14 @@ export class UserMedia implements IUserMedia {
         this.gainNode.gain.value = gain;
     }
 
-    public SampleInput() : number {
+    public SampleInput(): number {
         const sampleBuffer = new Float32Array(this.analyserNode.fftSize);
 
         this.analyserNode.getFloatTimeDomainData(sampleBuffer);
 
         var peak = 0;
-        sampleBuffer.forEach(function(value){
-            peak = Math.max( peak, Math.abs(value));
+        sampleBuffer.forEach(function (value) {
+            peak = Math.max(peak, Math.abs(value));
         });
         return peak;
     }

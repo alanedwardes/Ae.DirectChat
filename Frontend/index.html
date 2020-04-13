@@ -5,6 +5,14 @@
 </head>
 
 <style>
+    form, p {
+        margin:0;
+    }
+
+    p {
+        padding:.5em 0;
+    }
+
     body {
         font-family: sans-serif;
     }
@@ -12,20 +20,57 @@
     #audioGainSlider {
         width: 512px;
     }
+
+    .window {
+        padding:.5em 1em;
+        float: left;
+        background: white;
+        box-shadow:rgba(1, 1, 1, 0.1) 0 0 25px;
+        margin:1em .5em;
+        border:2px solid lightskyblue;
+    }
+
+    .closeButton {
+        float:right;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    #videoWall {
+        position:absolute;
+        z-index: -1;
+        left:0;
+        top:0;
+    }
 </style>
 
 <body>
-    <canvas id="volumeCanvas" width="512" height="64"></canvas>
-    <form>
-        <p><label for="audioGainSlider">Gain: <span id="audioGainValue"></span></label></p>
-        <p><input type="range" min="0" max="5" step="0.5" id="audioGainSlider" /></p>
-    </form>
+    <button id="audioControlsButton">🎤 Audio Controls</button>
+    <button id="videoControlsButton">📷 Video Controls</button>
+    <div style="clear:both"></div>
+    <div id="audioControls" class="window">
+        <button class="closeButton">X</button>
+        <p>🎤 Audio Controls</p>
+        <canvas id="volumeCanvas" width="512" height="64"></canvas>
+        <form>
+            <p><label for="audioGainSlider">Gain: <span id="audioGainValue"></span></label></p>
+            <p><input type="range" min="0" max="5" step="0.5" id="audioGainSlider" /></p>
+            <p><input type="checkbox" id="localListenCheckbox" /> <label for="localListenCheckbox">Local Listen</label>
+            </p>
+        </form>
+    </div>
+    <div id="videoControls" class="window">
+        <button class="closeButton">X</button>
+        <p>📷 Video Controls</p>
+    </div>
+    <canvas id="videoWall"></canvas>
     <script src="dist/bundle.js"></script>
     <script>
         window.onload = function () {
             var roomId = window.location.hash;
-            if (roomId == "")
-            {
+            if (roomId == "") {
                 alert("Please specify a room ID");
                 return;
             }
@@ -34,15 +79,33 @@
 
             setGainValue(1);
 
-            document.getElementById('audioGainSlider').addEventListener('input', function (event) {
+            document.querySelector('#audioGainSlider').addEventListener('input', event => {
                 setGainValue(event.srcElement.value);
-                ChatApp.ChatApp.SetGain(this.value);
+                ChatApp.ChatApp.SetGain(event.srcElement.value);
+            });
+
+            document.querySelector('#localListenCheckbox').addEventListener('input', event => {
+                ChatApp.ChatApp.SetLocalListen(event.srcElement.checked);
+            });
+
+            document.querySelector('#audioControlsButton').addEventListener('click', event => {
+                document.querySelector('#audioControls').classList.remove("hidden");
+            });
+
+            document.querySelector('#videoControlsButton').addEventListener('click', event => {
+                document.querySelector('#videoControls').classList.remove("hidden");
             });
 
             function setGainValue(value) {
-                document.getElementById('audioGainSlider').value = value;
-                document.getElementById('audioGainValue').innerHTML = value;
+                document.querySelector('#audioGainSlider').value = value;
+                document.querySelector('#audioGainValue').innerHTML = value;
             }
+
+            document.querySelectorAll('.closeButton').forEach(element => {
+                element.addEventListener('click', event => {
+                    event.srcElement.parentElement.classList.add("hidden");
+                });
+            });
         };
     </script>
 </body>

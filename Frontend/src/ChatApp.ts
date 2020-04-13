@@ -2,19 +2,26 @@ import { UserMedia } from "./UserMedia";
 import { Broker, IBroker, Envelope } from "./Broker";
 import { PeerConnector } from "./PeerConnector";
 import { VolumeUI, AudioSample } from "./VolumeUI";
+import { VideoWall } from "./VideoWallUI";
 
 export class ChatApp {
-    private static userMedia : UserMedia = new UserMedia();
+    private static userMedia: UserMedia = new UserMedia();
 
-    public static SetGain(gain : number)
-    {
+    public static SetGain(gain: number) {
         this.userMedia.SetGain(gain);
     }
 
-    public static async Start(roomId : string): Promise<void> {
-        const peerConnector : PeerConnector = new PeerConnector();
+    public static SetLocalListen(shouldListen: boolean) {
+        this.userMedia.SetLocalListen(shouldListen);
+    }
+
+    public static async Start(roomId: string): Promise<void> {
+        const peerConnector: PeerConnector = new PeerConnector();
 
         const stream: MediaStream = await this.userMedia.RequestAccess();
+
+        var videoWall = new VideoWall();
+        videoWall.SetLocalStream(stream);
 
         const volumeUI = new VolumeUI();
 
@@ -31,11 +38,7 @@ export class ChatApp {
 
         peerConnector.OnHasStreams = streams => {
             streams.forEach(stream => {
-                console.log("adding video element")
-                const video : HTMLAudioElement = document.createElement("video");
-                document.body.appendChild(video);
-                video.srcObject = stream;
-                video.play();
+                videoWall.AddRemoteStream(stream);
             });
         };
 
@@ -52,20 +55,16 @@ export class ChatApp {
         });
 
         broker.OnMessage = async (message: Envelope) => {
-            if (message.Type == "offer")
-            {
+            if (message.Type == "offer") {
                 await peerConnector.AcceptOffer(message.Data);
             }
-            if (message.Type == "accept")
-            {
+            if (message.Type == "accept") {
                 await peerConnector.AcceptAnswer(message.Data);
             }
-            if (message.Type == "candidates")
-            {
+            if (message.Type == "candidates") {
                 await peerConnector.AddRemoteCandidates(message.Data);
             }
-            if (message.Type == "discover")
-            {
+            if (message.Type == "discover") {
                 peerConnector.SendLocalCandidates();
             }
         };
