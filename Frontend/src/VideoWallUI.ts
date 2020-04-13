@@ -47,8 +47,13 @@ export class VideoWall {
             return;
         }
 
-        this.remoteStreams.push(new VideoStream(mediaStream, false));
-        console.log(this);
+        if (mediaStream == this.localStream.Stream) {
+            console.error("Ignoring remote media stream as it is the same as the local stream");
+            return;
+        }
+
+        const newStream: VideoStream = new VideoStream(mediaStream, false);
+        this.remoteStreams.push(newStream);
     }
 
     private CalculateAspectRatioFit(srcWidth: number, srcHeight: number, maxWidth: number, maxHeight: number): Size {
@@ -60,17 +65,17 @@ export class VideoWall {
     }
 
     private Render() {
-        if (this.localStream == null) {
-            window.requestAnimationFrame(() => this.Render());
-            return;
-        }
-
         // Resize the canvas
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
 
-        this.DrawRemoteStreams();
-        this.DrawLocalStream();
+        if (this.remoteStreams.length > 0) {
+            this.DrawRemoteStreams();
+        }
+
+        if (this.localStream != null) {
+            this.DrawLocalStream();
+        }
 
         window.requestAnimationFrame(() => this.Render());
     }
@@ -92,9 +97,30 @@ export class VideoWall {
             localVideoSize.Height);
     }
 
-    private DrawRemoteStreams() {
-        //if (this.remoteStreams.length == 1) {
+    private RemoveInactiveRemoteStreams(): void {
+        const inactiveStreams: VideoStream[] = this.remoteStreams.filter((stream: VideoStream) => !stream.Stream.active);
+        if (inactiveStreams.length > 0) {
+            inactiveStreams.forEach((stream: VideoStream) => {
+                const index: number = this.remoteStreams.indexOf(stream);
+                this.remoteStreams.splice(index, 1);
+            });
+        }
+    }
+
+    private DrawRemoteStreams(): void {
+        this.RemoveInactiveRemoteStreams();
+
+        if (this.remoteStreams.length == 1) {
+
+            const videoStream: VideoStream = this.remoteStreams[0];
+
+            const videoSize: Size = this.CalculateAspectRatioFit(
+                videoStream.Size.Width * 10,
+                videoStream.Size.Height * 10,
+                this.canvas.width,
+                this.canvas.height);
+
             this.context.drawImage(this.localStream.Element, 0, 0, this.canvas.width, this.canvas.height);
-        //}
+        }
     }
 }
