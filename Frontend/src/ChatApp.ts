@@ -6,6 +6,8 @@ import { VideoWall } from "./VideoWallUI";
 
 export class ChatApp {
     private static userMedia: UserMedia = new UserMedia();
+    private static videoWall: VideoWall;
+    private static peerConnector: PeerConnector;
 
     public static SetGain(gain: number) {
         this.userMedia.SetGain(gain);
@@ -15,14 +17,18 @@ export class ChatApp {
         this.userMedia.SetLocalListen(shouldListen);
     }
 
+    public static async SetCameraEnabled(enabled: boolean) : Promise<void> {
+        const stream: MediaStream = await this.userMedia.RequestAccess(enabled);
+        this.videoWall.SetLocalStream(stream);
+        this.peerConnector.StartLocalStream(stream);
+    }
+
     public static async Start(roomId: string): Promise<void> {
-        const peerConnector: PeerConnector = new PeerConnector();
+        this.peerConnector = new PeerConnector();
 
-        const stream: MediaStream = await this.userMedia.RequestAccess();
+        const stream: MediaStream = await this.userMedia.RequestAccess(false);
 
-        var videoWall = new VideoWall();
-        videoWall.SetLocalStream(stream);
-
+        this.videoWall = new VideoWall();
         const volumeUI = new VolumeUI();
 
         volumeUI.OnNeedSample = () => {
@@ -32,40 +38,38 @@ export class ChatApp {
         const broker = new Broker(roomId);
         await broker.Open();
 
-        peerConnector.OnHasIceCandidates = candidates => {
+        this.peerConnector.OnHasIceCandidates = candidates => {
             broker.Broadcast(candidates, "candidates");
         }
 
-        peerConnector.OnHasStreams = streams => {
+        this.peerConnector.OnHasStreams = streams => {
             streams.forEach(stream => {
-                videoWall.AddRemoteStream(stream);
+                this.videoWall.AddRemoteStream(stream);
             });
         };
 
-        peerConnector.OnHasOffer = offer => {
+        this.peerConnector.OnHasOffer = offer => {
             broker.Broadcast(offer, "offer");
         }
 
-        peerConnector.OnAcceptedOffer = offer => {
+        this.peerConnector.OnAcceptedOffer = offer => {
             broker.Broadcast(offer, "accept");
         };
 
-        stream.getTracks().forEach((track: MediaStreamTrack) => {
-            peerConnector.AddTrack(track, stream);
-        });
+        this.peerConnector.StartLocalStream(stream);
 
         broker.OnMessage = async (message: Envelope) => {
             if (message.Type == "offer") {
-                await peerConnector.AcceptOffer(message.Data);
+                await this.peerConnector.AcceptOffer(message.Data);
             }
             if (message.Type == "accept") {
-                await peerConnector.AcceptAnswer(message.Data);
+                await this.peerConnector.AcceptAnswer(message.Data);
             }
             if (message.Type == "candidates") {
-                await peerConnector.AddRemoteCandidates(message.Data);
+                await this.peerConnector.AddRemoteCandidates(message.Data);
             }
             if (message.Type == "discover") {
-                peerConnector.SendLocalCandidates();
+                this.peerConnector.SendLocalCandidates();
             }
         };
 

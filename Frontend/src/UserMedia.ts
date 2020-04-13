@@ -1,5 +1,5 @@
 export interface IUserMedia {
-    RequestAccess(): Promise<MediaStream>;
+    RequestAccess(video : boolean): Promise<MediaStream>;
 }
 
 export class UserMedia implements IUserMedia {
@@ -9,14 +9,14 @@ export class UserMedia implements IUserMedia {
     private localListenElement: HTMLAudioElement;
     private currentStream: MediaStream;
 
-    public async RequestAccess(): Promise<MediaStream> {
+    public async RequestAccess(video : boolean): Promise<MediaStream> {
         const stream: MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 autoGainControl: false,
                 echoCancellation: false,
                 noiseSuppression: false
             },
-            video: true
+            video: video
         });
 
         // Lazy initialise the audio context

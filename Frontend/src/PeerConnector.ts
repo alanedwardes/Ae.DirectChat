@@ -1,5 +1,5 @@
 export interface IPeerConnector {
-    AddTrack(track: MediaStreamTrack, stream: MediaStream): void
+    StartLocalStream(stream: MediaStream): void
     OnHasIceCandidates: OnHasIceCandidatesDelegate;
     OnHasStreams: OnHasStreamsDelegate;
     OnHasOffer: OnHasOffer;
@@ -91,7 +91,20 @@ export class PeerConnector implements IPeerConnector {
         this.OnAcceptedOffer(this.connector.localDescription);
     }
 
-    public AddTrack(track: MediaStreamTrack, stream: MediaStream): void {
-        this.connector.addTrack(track, stream);
+    private readonly rtpSenders: RTCRtpSender[] = new Array<RTCRtpSender>();
+
+    public StartLocalStream(stream: MediaStream): void {
+        this.StopLocalStream();
+
+        stream.getTracks().forEach((track: MediaStreamTrack) => {
+            this.rtpSenders.push(this.connector.addTrack(track, stream));
+        });
+    }
+
+    private StopLocalStream(): void {
+        this.rtpSenders.forEach((sender: RTCRtpSender) => {
+            this.connector.removeTrack(sender);
+        });
+        this.rtpSenders.slice(this.rtpSenders.length - 1);
     }
 }

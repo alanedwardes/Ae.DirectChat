@@ -6,22 +6,34 @@ class Size {
 class VideoStream {
     constructor(mediaStream: MediaStream, muted: boolean) {
         this.Stream = mediaStream;
-        this.Track = mediaStream.getVideoTracks()[0];
-        this.Settings = this.Track.getSettings();
+
+        const audioTracks : MediaStreamTrack[] = mediaStream.getAudioTracks();
+        const videoTracks : MediaStreamTrack[] = mediaStream.getVideoTracks();
+
+        if (audioTracks.length > 0) {
+            this.AudioTrack = audioTracks[0];
+        }
+
+        if (videoTracks.length > 0) {
+            this.VideoTrack = videoTracks[0];
+            this.VideoSettings = this.VideoTrack.getSettings();
+            this.VideoSize = new Size();
+            this.VideoSize.Width = this.VideoSettings.width;
+            this.VideoSize.Height = this.VideoSettings.height;
+        }
+
         this.Element = document.createElement("video");
         this.Element.srcObject = mediaStream;
         this.Element.muted = muted;
         this.Element.play();
-        this.Size = new Size();
-        this.Size.Width = this.Settings.width;
-        this.Size.Height = this.Settings.height;
     }
 
     public readonly Element: HTMLVideoElement;
     public readonly Stream: MediaStream;
-    public readonly Track: MediaStreamTrack;
-    public readonly Settings: MediaTrackSettings;
-    public readonly Size: Size;
+    public readonly AudioTrack: MediaStreamTrack;
+    public readonly VideoTrack: MediaStreamTrack;
+    public readonly VideoSettings: MediaTrackSettings;
+    public readonly VideoSize: Size;
 }
 
 export class VideoWall {
@@ -47,7 +59,7 @@ export class VideoWall {
             return;
         }
 
-        if (mediaStream == this.localStream.Stream) {
+        if (this.localStream != null && mediaStream == this.localStream.Stream) {
             console.error("Ignoring remote media stream as it is the same as the local stream");
             return;
         }
@@ -73,7 +85,7 @@ export class VideoWall {
             this.DrawRemoteStreams();
         }
 
-        if (this.localStream != null) {
+        if (this.localStream != null && this.localStream.VideoTrack != null && this.localStream.Stream.active) {
             this.DrawLocalStream();
         }
 
@@ -83,8 +95,8 @@ export class VideoWall {
     private DrawLocalStream() {
         // Calculate the local video size
         const localVideoSize: Size = this.CalculateAspectRatioFit(
-            this.localStream.Size.Width,
-            this.localStream.Size.Height,
+            this.localStream.VideoSize.Width,
+            this.localStream.VideoSize.Height,
             this.canvas.width / 5,
             this.canvas.height / 5);
 
@@ -114,13 +126,9 @@ export class VideoWall {
 
             const videoStream: VideoStream = this.remoteStreams[0];
 
-            const videoSize: Size = this.CalculateAspectRatioFit(
-                videoStream.Size.Width * 10,
-                videoStream.Size.Height * 10,
-                this.canvas.width,
-                this.canvas.height);
-
-            this.context.drawImage(this.localStream.Element, 0, 0, this.canvas.width, this.canvas.height);
+            if (videoStream.VideoTrack != null){
+                this.context.drawImage(videoStream.Element, 0, 0, this.canvas.width, this.canvas.height);
+            }            
         }
     }
 }
