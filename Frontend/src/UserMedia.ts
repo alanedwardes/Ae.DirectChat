@@ -1,5 +1,5 @@
 export interface IUserMedia {
-    RequestAccess(video : boolean): Promise<MediaStream>;
+    RequestAccess(video: boolean): Promise<MediaStream>;
 }
 
 export class UserMedia implements IUserMedia {
@@ -9,14 +9,19 @@ export class UserMedia implements IUserMedia {
     private localListenElement: HTMLAudioElement;
     private currentStream: MediaStream;
 
-    public async RequestAccess(video : boolean): Promise<MediaStream> {
+    public async RequestAccess(video: boolean): Promise<MediaStream> {
+        let videoRequest: any = video ? {
+            width: { min: 1280 },
+            height: { min: 720 }
+        } : false;
+
         const stream: MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 autoGainControl: false,
                 echoCancellation: false,
                 noiseSuppression: false
             },
-            video: video
+            video: videoRequest
         });
 
         // Lazy initialise the audio context
@@ -41,7 +46,7 @@ export class UserMedia implements IUserMedia {
     }
 
     public SetLocalListen(shouldListen: boolean) {
-        if (this.localListenElement == null){
+        if (this.localListenElement == null) {
             this.localListenElement = document.createElement("audio");
         }
 

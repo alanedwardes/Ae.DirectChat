@@ -7,6 +7,11 @@ class VideoStream {
     constructor(mediaStream: MediaStream, muted: boolean) {
         this.Stream = mediaStream;
 
+        this.Element = document.createElement("video");
+        this.Element.srcObject = mediaStream;
+        this.Element.muted = muted;
+        this.Element.play();
+
         const audioTracks : MediaStreamTrack[] = mediaStream.getAudioTracks();
         const videoTracks : MediaStreamTrack[] = mediaStream.getVideoTracks();
 
@@ -17,15 +22,7 @@ class VideoStream {
         if (videoTracks.length > 0) {
             this.VideoTrack = videoTracks[0];
             this.VideoSettings = this.VideoTrack.getSettings();
-            this.VideoSize = new Size();
-            this.VideoSize.Width = this.VideoSettings.width;
-            this.VideoSize.Height = this.VideoSettings.height;
         }
-
-        this.Element = document.createElement("video");
-        this.Element.srcObject = mediaStream;
-        this.Element.muted = muted;
-        this.Element.play();
     }
 
     public readonly Element: HTMLVideoElement;
@@ -33,7 +30,6 @@ class VideoStream {
     public readonly AudioTrack: MediaStreamTrack;
     public readonly VideoTrack: MediaStreamTrack;
     public readonly VideoSettings: MediaTrackSettings;
-    public readonly VideoSize: Size;
 }
 
 export class VideoWall {
@@ -95,8 +91,8 @@ export class VideoWall {
     private DrawLocalStream() {
         // Calculate the local video size
         const localVideoSize: Size = this.CalculateAspectRatioFit(
-            this.localStream.VideoSize.Width,
-            this.localStream.VideoSize.Height,
+            this.localStream.Element.videoWidth,
+            this.localStream.Element.videoHeight,
             this.canvas.width / 5,
             this.canvas.height / 5);
 
@@ -123,11 +119,17 @@ export class VideoWall {
         this.RemoveInactiveRemoteStreams();
 
         if (this.remoteStreams.length == 1) {
-
             const videoStream: VideoStream = this.remoteStreams[0];
 
             if (videoStream.VideoTrack != null){
-                this.context.drawImage(videoStream.Element, 0, 0, this.canvas.width, this.canvas.height);
+
+                const localVideoSize: Size = this.CalculateAspectRatioFit(
+                    videoStream.Element.videoWidth * 99,
+                    videoStream.Element.videoHeight * 99,
+                    this.canvas.width,
+                    this.canvas.height);
+
+                this.context.drawImage(videoStream.Element, 0, 0, localVideoSize.Width, localVideoSize.Height);
             }            
         }
     }
