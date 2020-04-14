@@ -32,6 +32,8 @@ namespace AeChatLambda
         {
             [DataMember(Name = "roomId")]
             public string RoomId { get; set; }
+            [DataMember(Name = "fromId")]
+            public string FromId { get; set; }
             [DataMember(Name = "type")]
             public string Type { get; set; }
             [DataMember(Name = "data")]
@@ -157,6 +159,7 @@ namespace AeChatLambda
 
                 try
                 {
+                    envelope.FromId = connectionId;
                     await gateway.PostToConnectionAsync(new PostToConnectionRequest
                     {
                         ConnectionId = remoteConnectionId,
