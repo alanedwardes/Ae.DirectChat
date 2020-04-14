@@ -1,11 +1,12 @@
 export interface IBroker {
     Open(): Promise<void>
-    Broadcast(payload: any, type: string): void
+    Send(payload: any, type: string, connectionId: string): void
     OnMessage: OnMessageDelegate;
 }
 
 export class Envelope {
     public RoomId: string;
+    public FromId: string;
     public Type: string;
     public Data: any;
 }
@@ -26,23 +27,25 @@ export class Broker implements IBroker {
 
     public async Open(): Promise<void> {
         this.socket = new WebSocket("wss://c4x3tpp039.execute-api.eu-west-1.amazonaws.com/default");
-        this.socket.onmessage = (event : MessageEvent) => this.OnMessageInternal(event);
+        this.socket.onmessage = (event: MessageEvent) => this.OnMessageInternal(event);
         return new Promise(resolve => this.socket.onopen = () => resolve());
     }
 
-    private OnMessageInternal(event : MessageEvent): void {
+    private OnMessageInternal(event: MessageEvent): void {
         const data: string = JSON.parse(event.data);
         const envelope: Envelope = new Envelope();
         envelope.Data = JSON.parse(data["data"]);
         envelope.RoomId = data["roomId"];
         envelope.Type = data["type"];
+        envelope.FromId = data["fromId"];
         console.info("Received: " + envelope.Type);
         this.OnMessage(envelope);
     }
 
-    public Broadcast(payload: any, type: string): void {
+    public Send(payload: any, type: string, connectionId: string): void {
         const serialized: string = JSON.stringify({
             roomId: this.roomId,
+            toId: connectionId,
             type: type,
             data: JSON.stringify(payload)
         });

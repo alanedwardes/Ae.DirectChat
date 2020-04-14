@@ -118,8 +118,8 @@ export class VideoWall {
     private DrawRemoteStreams(): void {
         this.RemoveInactiveRemoteStreams();
 
-        if (this.remoteStreams.length == 1) {
-            const videoStream: VideoStream = this.remoteStreams[0];
+        if (this.remoteStreams.length > 0) {
+            const videoStream: VideoStream = this.remoteStreams[this.remoteStreams.length - 1];
 
             if (videoStream.VideoTrack != null){
 

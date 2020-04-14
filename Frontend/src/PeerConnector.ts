@@ -39,6 +39,7 @@ export class PeerConnector implements IPeerConnector {
         this.connector.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
             if (event.candidate == null) {
                 this.OnHasIceCandidates(this.localCandidates);
+                this.localCandidates = new Array<RTCIceCandidate>();
             }
             else {
                 this.localCandidates.push(event.candidate);
@@ -59,17 +60,13 @@ export class PeerConnector implements IPeerConnector {
         };
     }
 
-    public SendLocalCandidates(): void {
-        this.OnHasIceCandidates(this.localCandidates);
-    }
-
     public async AddRemoteCandidates(candidates: RTCIceCandidate[]): Promise<void> {
         await candidates.forEach(async (candidate: RTCIceCandidate) => {
-            if (this.connector.remoteDescription == null) {
-                this.remoteCandidates.push(candidate);
-            }
-            else {
+            try {
                 await this.connector.addIceCandidate(candidate);
+            }
+            catch{
+                this.remoteCandidates.push(candidate);
             }
         });
     }
@@ -97,12 +94,14 @@ export class PeerConnector implements IPeerConnector {
         this.StopLocalStream();
 
         stream.getTracks().forEach((track: MediaStreamTrack) => {
+            console.log("adding track");
             this.rtpSenders.push(this.connector.addTrack(track, stream));
         });
     }
 
     private StopLocalStream(): void {
         this.rtpSenders.forEach((sender: RTCRtpSender) => {
+            console.log("removing track");
             this.connector.removeTrack(sender);
         });
         this.rtpSenders.slice(this.rtpSenders.length - 1);
