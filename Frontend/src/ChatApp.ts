@@ -4,39 +4,54 @@ import { PeerConnector } from "./PeerConnector";
 import { VolumeUI, AudioSample } from "./VolumeUI";
 import { VideoWall } from "./VideoWallUI";
 
+interface OnConnectDelegate {
+    (connectionId: string): void;
+}
+
+interface OnDisconnectDelegate {
+    (connectionId: string): void;
+}
+
 export class ChatApp {
     private static userMedia: UserMedia = new UserMedia();
     private static videoWall: VideoWall;
     private static localStream: MediaStream;
 
+    public static OnConnect: OnConnectDelegate;
+    public static OnDisconnect: OnDisconnectDelegate;
+
     public static SetGain(gain: number) {
-        this.userMedia.SetGain(gain);
+        ChatApp.userMedia.SetGain(gain);
     }
 
     public static SetLocalListen(shouldListen: boolean) {
-        this.userMedia.SetLocalListen(shouldListen);
+        ChatApp.userMedia.SetLocalListen(shouldListen);
     }
 
     public static async SetCameraEnabled(enabled: boolean): Promise<void> {
-        this.localStream = await this.userMedia.RequestAccess(enabled);
-        this.videoWall.SetLocalStream(this.localStream);
-        for (let fromId in this.connectors) {
-            if (this.connectors.hasOwnProperty(fromId)) {
-                this.connectors[fromId].StartLocalStream(this.localStream);
+        ChatApp.localStream = await ChatApp.userMedia.RequestAccess(enabled);
+        ChatApp.videoWall.SetLocalStream(ChatApp.localStream);
+        for (let fromId in ChatApp.connectors) {
+            if (ChatApp.connectors.hasOwnProperty(fromId)) {
+                ChatApp.connectors[fromId].StartLocalStream(ChatApp.localStream);
             }
         }
+    }
+
+    public static async GetStatistics(connectionId : string) : Promise<RTCStatsReport> {
+        return await this.connectors[connectionId].GetStatistics();
     }
 
     private static connectors: { [fromId: string]: PeerConnector; } = {};
 
     public static async Start(roomId: string): Promise<void> {
-        this.localStream = await this.userMedia.RequestAccess(false);
+        ChatApp.localStream = await ChatApp.userMedia.RequestAccess(false);
 
-        this.videoWall = new VideoWall();
+        ChatApp.videoWall = new VideoWall();
         const volumeUI = new VolumeUI();
 
         volumeUI.OnNeedSample = () => {
-            return new AudioSample(this.userMedia.GetGain(), this.userMedia.SampleInput());
+            return new AudioSample(ChatApp.userMedia.GetGain(), ChatApp.userMedia.SampleInput());
         }
 
         const broker = new Broker(roomId);
@@ -44,8 +59,15 @@ export class ChatApp {
 
         broker.OnMessage = async (message: Envelope) => {
 
-            if (!this.connectors.hasOwnProperty(message.FromId)) {
+            if (!ChatApp.connectors.hasOwnProperty(message.FromId)) {
+                ChatApp.OnConnect(message.FromId);
                 const peerConnector: PeerConnector = new PeerConnector();
+
+                peerConnector.OnConnectionChanged = newState => {
+                    if (newState == "failed") {
+                        ChatApp.OnDisconnect(message.FromId);
+                    }
+                };
 
                 peerConnector.OnHasIceCandidates = candidates => {
                     broker.Send(candidates, "candidates", message.FromId);
@@ -53,7 +75,7 @@ export class ChatApp {
 
                 peerConnector.OnHasStreams = streams => {
                     streams.forEach(stream => {
-                        this.videoWall.AddRemoteStream(stream);
+                        ChatApp.videoWall.AddRemoteStream(stream);
                     });
                 };
 
@@ -65,18 +87,18 @@ export class ChatApp {
                     broker.Send(offer, "accept", message.FromId);
                 };
 
-                peerConnector.StartLocalStream(this.localStream);
-                this.connectors[message.FromId] = peerConnector;
+                peerConnector.StartLocalStream(ChatApp.localStream);
+                ChatApp.connectors[message.FromId] = peerConnector;
             }
 
             if (message.Type == "offer") {
-                this.connectors[message.FromId].AcceptOffer(message.Data);
+                ChatApp.connectors[message.FromId].AcceptOffer(message.Data);
             }
             if (message.Type == "accept") {
-                this.connectors[message.FromId].AcceptAnswer(message.Data);
+                ChatApp.connectors[message.FromId].AcceptAnswer(message.Data);
             }
             if (message.Type == "candidates") {
-                this.connectors[message.FromId].AddRemoteCandidates(message.Data);
+                ChatApp.connectors[message.FromId].AddRemoteCandidates(message.Data);
             }
         };
 

@@ -1,9 +1,11 @@
 export interface IPeerConnector {
     StartLocalStream(stream: MediaStream): void
+    GetStatistics() : Promise<RTCStatsReport>
     OnHasIceCandidates: OnHasIceCandidatesDelegate;
     OnHasStreams: OnHasStreamsDelegate;
-    OnHasOffer: OnHasOffer;
-    OnAcceptedOffer: OnAcceptedOffer;
+    OnHasOffer: OnHasOfferDelegate;
+    OnAcceptedOffer: OnAcceptedOfferDelegate;
+    OnConnectionChanged: OnConnectionChangedDelegate;
 }
 
 interface OnHasStreamsDelegate {
@@ -14,12 +16,16 @@ interface OnHasIceCandidatesDelegate {
     (candidates: readonly RTCIceCandidate[]): void;
 }
 
-interface OnHasOffer {
+interface OnHasOfferDelegate {
     (offer: RTCSessionDescription): void;
 }
 
-interface OnAcceptedOffer {
+interface OnAcceptedOfferDelegate {
     (offer: RTCSessionDescription): void;
+}
+
+interface OnConnectionChangedDelegate {
+    (newState: RTCPeerConnectionState): void;
 }
 
 export class PeerConnector implements IPeerConnector {
@@ -29,12 +35,17 @@ export class PeerConnector implements IPeerConnector {
 
     public OnHasIceCandidates: OnHasIceCandidatesDelegate;
     public OnHasStreams: OnHasStreamsDelegate;
-    public OnHasOffer: OnHasOffer;
-    public OnAcceptedOffer: OnAcceptedOffer;
+    public OnHasOffer: OnHasOfferDelegate;
+    public OnAcceptedOffer: OnAcceptedOfferDelegate;
+    public OnConnectionChanged: OnConnectionChangedDelegate;
 
     public constructor() {
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         this.connector = new RTCPeerConnection(configuration);
+
+        this.connector.onconnectionstatechange = () => {
+            this.OnConnectionChanged(this.connector.connectionState);
+        }
 
         this.connector.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
             if (event.candidate == null) {
@@ -58,6 +69,11 @@ export class PeerConnector implements IPeerConnector {
         this.connector.ontrack = (ev: RTCTrackEvent) => {
             this.OnHasStreams(ev.streams);
         };
+    }
+
+    public async GetStatistics() : Promise<RTCStatsReport>
+    {
+        return await this.connector.getStats();
     }
 
     public async AddRemoteCandidates(candidates: RTCIceCandidate[]): Promise<void> {
