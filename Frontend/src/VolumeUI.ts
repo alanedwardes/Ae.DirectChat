@@ -26,8 +26,7 @@ export class VolumeUI {
     private Animate() {
         if (this.OnNeedSample != null) {
             const sample: AudioSample = this.OnNeedSample();
-            this.context.fillStyle = "#eee";
-            this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
             this.context.fillStyle = "green";
 

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Ae.Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
 </head>
 
 <style>
@@ -14,9 +15,24 @@
     p {
         padding: .5em 0;
     }
+    
+    body, button {
+        color:#eee;
+        font-size:1.1em;
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    button, .window {
+        background:#444;
+        border-radius: 5px;
+        box-shadow: rgba(0, 0, 0, 0.25) 0 0 25px;
+        border:0;
+        margin:1em;
+        padding:.5em 1em;
+    }
 
     body {
-        font-family: sans-serif;
+        background:radial-gradient(#444, #222);
     }
 
     #audioGainSlider {
@@ -24,20 +40,24 @@
     }
 
     .window {
-        padding: .5em 1em;
+        min-width:256px;
         float: left;
-        background: rgba(255, 255, 255, 1);
-        box-shadow: rgba(0, 0, 0, 0.1) 0 0 25px;
-        margin: 1em .5em;
-        border: 2px solid lightskyblue;
     }
 
     .closeButton {
+        background:transparent;
+        box-shadow:none;
+        padding:0;
         float: right;
+        margin:0;
     }
 
     .hidden {
         display: none;
+    }
+
+    #volumeCanvas {
+        background:#333;
     }
 
     #videoWall {
@@ -54,7 +74,7 @@
     <button id="attendeeWindowButton">🧍 Attendees</button>
     <div style="clear:both"></div>
     <div id="audioControls" class="window hidden">
-        <button class="closeButton">X</button>
+        <button class="closeButton">✕</button>
         <p>🎤 Audio Controls</p>
         <canvas id="volumeCanvas" width="512" height="64"></canvas>
         <form>
@@ -65,14 +85,14 @@
         </form>
     </div>
     <div id="videoControls" class="window hidden">
-        <button class="closeButton">X</button>
+        <button class="closeButton">✕</button>
         <p>📷 Video Controls</p>
         <form>
             <p><input type="checkbox" id="cameraCheckbox" /> <label for="cameraCheckbox">Enable Video</label></p>
         </form>
     </div>
     <div id="attendeeWindow" class="window hidden">
-        <button class="closeButton">X</button>
+        <button class="closeButton">✕</button>
         <p>🧍 Attendees</p>
         <ol id="attendeeList"></ol>
     </div>
