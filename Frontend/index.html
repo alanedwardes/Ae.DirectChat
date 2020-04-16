@@ -79,15 +79,15 @@
     <canvas id="videoWall"></canvas>
     <script src="dist/bundle.js"></script>
     <script>
-        window.onload = function () {
-            var roomId = window.location.hash;
+        window.onload = () => {
+            let roomId = window.location.hash;
             if (roomId == "") {
                 function dec2hex(dec) {
                     return ('0' + dec.toString(16)).substr(-2)
                 }
 
                 function generateId(len) {
-                    var arr = new Uint8Array((len || 40) / 2)
+                    let arr = new Uint8Array((len || 40) / 2)
                     window.crypto.getRandomValues(arr)
                     return Array.from(arr, dec2hex).join('')
                 }
@@ -95,7 +95,11 @@
                 window.location.hash = '#' + generateId(36);
             }
 
+            let joinSound = document.createElement("audio");
+            joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
             ChatApp.ChatApp.OnConnect = connectionId => {
+                joinSound.play();
+
                 let li = document.createElement("li");
                 li.onclick = event => {
                     ChatApp.ChatApp.GetStatistics(connectionId).then(statistics => {
@@ -107,7 +111,12 @@
                 li.innerHTML = connectionId;
                 document.querySelector("#attendeeList").appendChild(li)
             };
+
+            let leaveSound = document.createElement("audio");
+            leaveSound.src = "https://s.edward.es/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
             ChatApp.ChatApp.OnDisconnect = connectionId => {
+                leaveSound.play();
+
                 let list = document.querySelector("#attendeeList");
                 for (let i in list.children){
                     let item = list.children[i];
