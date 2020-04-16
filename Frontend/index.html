@@ -84,8 +84,10 @@
         <form>
             <p><label for="audioGainSlider">Gain: <span id="audioGainValue"></span></label></p>
             <p><input type="range" min="0" max="5" step="0.5" id="audioGainSlider" /></p>
-            <p><input type="checkbox" id="localListenCheckbox" /> <label for="localListenCheckbox">Local Listen</label>
-            </p>
+            <p><input type="checkbox" id="checkboxAudioLocalListen" /> <label for="checkboxAudioLocalListen">Local Listen</label></p>
+            <p><input type="checkbox" id="checkboxAudioEchoCancellation" /> <label for="checkboxAudioEchoCancellation">Enable Echo Cancellation</label></p>
+            <p><input type="checkbox" id="checkboxAudioNoiseSuppression" /> <label for="checkboxAudioNoiseSuppression">Enable Noise Suppression</label></p>
+            <p><input type="checkbox" id="checkboxAudioAutoGainControl" /> <label for="checkboxAudioAutoGainControl">Enable Auto Gain Control</label></p>
         </form>
     </div>
     <div id="videoControls" class="window hidden">
@@ -155,11 +157,33 @@
 
             document.querySelector('#audioGainSlider').addEventListener('input', event => {
                 setGainValue(event.srcElement.value);
-                ChatApp.ChatApp.SetGain(event.srcElement.value);
+                let settings = ChatApp.ChatApp.GetMediaSettings();
+                settings.AudioGain = event.srcElement.value;
+                ChatApp.ChatApp.SetMediaSettings(settings);
             });
 
-            document.querySelector('#localListenCheckbox').addEventListener('input', event => {
-                ChatApp.ChatApp.SetLocalListen(event.srcElement.checked);
+            document.querySelector('#checkboxAudioEchoCancellation').addEventListener('input', event => {
+                let settings = ChatApp.ChatApp.GetMediaSettings();
+                settings.AudioEchoCancellation = event.srcElement.checked;
+                ChatApp.ChatApp.SetMediaSettings(settings);
+            });
+
+            document.querySelector('#checkboxAudioNoiseSuppression').addEventListener('input', event => {
+                let settings = ChatApp.ChatApp.GetMediaSettings();
+                settings.AudioNoiseSuppression = event.srcElement.checked;
+                ChatApp.ChatApp.SetMediaSettings(settings);
+            });
+
+            document.querySelector('#checkboxAudioAutoGainControl').addEventListener('input', event => {
+                let settings = ChatApp.ChatApp.GetMediaSettings();
+                settings.AudioAutoGainControl = event.srcElement.checked;
+                ChatApp.ChatApp.SetMediaSettings(settings);
+            });
+
+            document.querySelector('#checkboxAudioLocalListen').addEventListener('input', event => {
+                let settings = ChatApp.ChatApp.GetMediaSettings();
+                settings.AudioLocalListen = event.srcElement.checked;
+                ChatApp.ChatApp.SetMediaSettings(settings);
             });
 
             document.querySelector('#audioControlsButton').addEventListener('click', event => {
@@ -175,7 +199,9 @@
             });
 
             document.querySelector('#cameraCheckbox').addEventListener('input', event => {
-                ChatApp.ChatApp.SetCameraEnabled(event.srcElement.checked);
+                let settings = ChatApp.ChatApp.GetMediaSettings();
+                settings.VideoEnabled = event.srcElement.checked;
+                ChatApp.ChatApp.SetMediaSettings(settings);
             });
 
             function setGainValue(value) {

@@ -1,5 +1,20 @@
 export interface IUserMedia {
-    RequestAccess(video: boolean): Promise<MediaStream>;
+    GetMediaStream(): Promise<MediaStream>;
+    GetSettings(): UserMediaSettings;
+    SetSettings(newSettings: UserMediaSettings): Promise<void>;
+}
+
+export class UserMediaSettings {
+    public VideoEnabled: boolean = false;
+    public AudioEchoCancellation: boolean = false;
+    public AudioAutoGainControl: boolean = false;
+    public AudioNoiseSuppression: boolean = false;
+    public AudioLocalListen: boolean = false;
+    public AudioGain: number = 1;
+}
+
+interface OnMediaStreamAvailable {
+    (stream: MediaStream): void;
 }
 
 export class UserMedia implements IUserMedia {
@@ -9,20 +24,96 @@ export class UserMedia implements IUserMedia {
     private localListenElement: HTMLAudioElement;
     private currentStream: MediaStream;
 
-    public async RequestAccess(video: boolean): Promise<MediaStream> {
-        let videoRequest: any = video ? {
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-        } : false;
+    private currentSettings: UserMediaSettings = new UserMediaSettings();
 
-        const stream: MediaStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                autoGainControl: false,
-                echoCancellation: false,
-                noiseSuppression: false
-            },
-            video: videoRequest
-        });
+    public OnMediaStreamAvailable: OnMediaStreamAvailable;
+
+    public GetSettings(): UserMediaSettings {
+        let settingsCopy = new UserMediaSettings();
+        Object.assign(settingsCopy, this.currentSettings);
+        return settingsCopy;
+    }
+
+    public async SetSettings(newSettings: UserMediaSettings): Promise<void> {
+        let shouldRefreshMediaAccess: boolean;
+        let shouldRefreshLocalListen: boolean;
+
+        if (this.currentSettings.AudioGain != newSettings.AudioGain) {
+            this.gainNode.gain.value = newSettings.AudioGain;
+        }
+
+        if (this.currentSettings.AudioAutoGainControl != newSettings.AudioAutoGainControl) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioEchoCancellation != newSettings.AudioEchoCancellation) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioNoiseSuppression != newSettings.AudioNoiseSuppression) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.VideoEnabled != newSettings.VideoEnabled) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioLocalListen != newSettings.AudioLocalListen) {
+            shouldRefreshLocalListen = true;
+        }
+
+        this.currentSettings = newSettings;
+
+        if (shouldRefreshMediaAccess) {
+            this.OnMediaStreamAvailable(await this.GetMediaStream());
+        }
+
+        if (shouldRefreshLocalListen) {
+            this.EvaluateLocalListen();
+        }
+    }
+
+    private EvaluateLocalListen() : void {
+        if (this.localListenElement == null) {
+            this.localListenElement = document.createElement("audio");
+        }
+
+        if (this.currentSettings.AudioLocalListen) {
+            this.localListenElement.srcObject = this.currentStream;
+            this.localListenElement.play();
+        }
+        else {
+            this.localListenElement.pause();
+        }
+    }
+
+    public async GetMediaStream(): Promise<MediaStream> {
+        const audioConstraints : MediaTrackConstraints = {};
+        audioConstraints.noiseSuppression = this.currentSettings.AudioNoiseSuppression;
+        audioConstraints.echoCancellation = this.currentSettings.AudioEchoCancellation;
+        audioConstraints.autoGainControl = this.currentSettings.AudioAutoGainControl;
+
+        const videoWidthRange : ConstrainULongRange = {};
+        videoWidthRange.ideal = 1280;
+        const videoHeightRange : ConstrainULongRange = {};
+        videoHeightRange.ideal = 720;
+
+        const videoConstraints : MediaTrackConstraints = {};
+        videoConstraints.width = videoWidthRange;
+        videoConstraints.height = videoHeightRange;
+
+        const constraints : MediaStreamConstraints = {};
+        constraints.audio = audioConstraints;
+        if (this.currentSettings.VideoEnabled)
+        {
+            constraints.video = videoConstraints;
+        }
+
+        const stream: MediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
         // Lazy initialise the audio context
         if (this.audioContext == null) {
@@ -45,32 +136,6 @@ export class UserMedia implements IUserMedia {
         return combined;
     }
 
-    public SetLocalListen(shouldListen: boolean) {
-        if (this.localListenElement == null) {
-            this.localListenElement = document.createElement("audio");
-        }
-
-        if (shouldListen) {
-            this.localListenElement.srcObject = this.currentStream;
-            this.localListenElement.play();
-        }
-        else {
-            this.localListenElement.pause();
-        }
-    }
-
-    public GetGain(): number {
-        if (this.gainNode == null) {
-            return 0;
-        }
-
-        return this.gainNode.gain.value;
-    }
-
-    public SetGain(gain: number): void {
-        this.gainNode.gain.value = gain;
-    }
-
     public SampleInput(): number {
         const sampleBuffer = new Float32Array(this.analyserNode.fftSize);
 
@@ -90,7 +155,7 @@ export class UserMedia implements IUserMedia {
         destination.channelCount = 1;
 
         this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.value = 1;
+        this.gainNode.gain.value = this.currentSettings.AudioGain;
 
         source.connect(this.gainNode);
 

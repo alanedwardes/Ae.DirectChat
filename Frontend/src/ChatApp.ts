@@ -1,4 +1,4 @@
-import { UserMedia } from "./UserMedia";
+import { UserMedia, UserMediaSettings } from "./UserMedia";
 import { Broker, IBroker, Envelope } from "./Broker";
 import { PeerConnector } from "./PeerConnector";
 import { VolumeUI, AudioSample } from "./VolumeUI";
@@ -13,6 +13,9 @@ interface OnDisconnectDelegate {
 }
 
 export class ChatApp {
+    public static GetMediaSettings(): UserMediaSettings { return ChatApp.userMedia.GetSettings(); }
+    public static async SetMediaSettings(newSettings: UserMediaSettings): Promise<void> { await ChatApp.userMedia.SetSettings(newSettings); }
+
     private static userMedia: UserMedia = new UserMedia();
     private static videoWall: VideoWall;
     private static localStream: MediaStream;
@@ -20,16 +23,14 @@ export class ChatApp {
     public static OnConnect: OnConnectDelegate;
     public static OnDisconnect: OnDisconnectDelegate;
 
-    public static SetGain(gain: number) {
-        ChatApp.userMedia.SetGain(gain);
+    public static async GetStatistics(connectionId: string): Promise<RTCStatsReport> {
+        return await this.connectors[connectionId].GetStatistics();
     }
 
-    public static SetLocalListen(shouldListen: boolean) {
-        ChatApp.userMedia.SetLocalListen(shouldListen);
-    }
+    private static connectors: { [fromId: string]: PeerConnector; } = {};
 
-    public static async SetCameraEnabled(enabled: boolean): Promise<void> {
-        ChatApp.localStream = await ChatApp.userMedia.RequestAccess(enabled);
+    public static SetLocalStream(localStream: MediaStream) {
+        ChatApp.localStream = localStream;
         ChatApp.videoWall.SetLocalStream(ChatApp.localStream);
         for (let fromId in ChatApp.connectors) {
             if (ChatApp.connectors.hasOwnProperty(fromId)) {
@@ -38,20 +39,18 @@ export class ChatApp {
         }
     }
 
-    public static async GetStatistics(connectionId : string) : Promise<RTCStatsReport> {
-        return await this.connectors[connectionId].GetStatistics();
-    }
-
-    private static connectors: { [fromId: string]: PeerConnector; } = {};
-
     public static async Start(roomId: string): Promise<void> {
-        ChatApp.localStream = await ChatApp.userMedia.RequestAccess(false);
+        ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
+            this.SetLocalStream(mediaStream);
+        };
 
         ChatApp.videoWall = new VideoWall();
         const volumeUI = new VolumeUI();
 
+        this.SetLocalStream(await ChatApp.userMedia.GetMediaStream());
+
         volumeUI.OnNeedSample = () => {
-            return new AudioSample(ChatApp.userMedia.GetGain(), ChatApp.userMedia.SampleInput());
+            return new AudioSample(ChatApp.userMedia.GetSettings().AudioGain, ChatApp.userMedia.SampleInput());
         }
 
         const broker = new Broker(roomId);

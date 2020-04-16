@@ -1,6 +1,6 @@
 export interface IPeerConnector {
     StartLocalStream(stream: MediaStream): void
-    GetStatistics() : Promise<RTCStatsReport>
+    GetStatistics(): Promise<RTCStatsReport>
     OnHasIceCandidates: OnHasIceCandidatesDelegate;
     OnHasStreams: OnHasStreamsDelegate;
     OnHasOffer: OnHasOfferDelegate;
@@ -71,8 +71,7 @@ export class PeerConnector implements IPeerConnector {
         };
     }
 
-    public async GetStatistics() : Promise<RTCStatsReport>
-    {
+    public async GetStatistics(): Promise<RTCStatsReport> {
         return await this.connector.getStats();
     }
 
