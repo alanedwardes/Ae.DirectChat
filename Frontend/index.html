@@ -104,7 +104,7 @@
     <script src="dist/bundle.js"></script>
     <script>
         window.onload = () => {
-            let roomId = window.location.hash;
+            let roomId = window.location.hash.replace('#', '');
             if (roomId == "") {
                 function dec2hex(dec) {
                     return ('0' + dec.toString(16)).substr(-2)
