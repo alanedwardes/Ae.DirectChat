@@ -65,6 +65,7 @@ export class ChatApp {
 
                 peerConnector.OnConnectionChanged = newState => {
                     if (newState == "failed") {
+                        delete ChatApp.connectors[message.FromId];
                         ChatApp.OnDisconnect(message.FromId);
                     }
                 };
