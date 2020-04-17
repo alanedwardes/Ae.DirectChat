@@ -18,11 +18,13 @@ interface OnMessageDelegate {
 export class Broker implements IBroker {
     private socket: WebSocket;
     private roomId: string;
+    private fromId: string;
 
     public OnMessage: OnMessageDelegate;
 
-    public constructor(roomId: string) {
+    public constructor(roomId: string, fromId: string) {
         this.roomId = roomId;
+        this.fromId = fromId;
     }
 
     public async Open(): Promise<void> {
@@ -42,10 +44,11 @@ export class Broker implements IBroker {
         this.OnMessage(envelope);
     }
 
-    public Send(payload: any, type: string, connectionId: string): void {
+    public Send(payload: any, type: string, toId: string): void {
         const serialized: string = JSON.stringify({
             roomId: this.roomId,
-            toId: connectionId,
+            toId: toId,
+            fromId: this.fromId,
             type: type,
             data: JSON.stringify(payload)
         });

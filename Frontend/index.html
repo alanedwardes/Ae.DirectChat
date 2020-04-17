@@ -106,7 +106,16 @@
     <script src="dist/bundle.js"></script>
     <script>
         window.onload = () => {
-            let roomId = window.location.hash.replace('#', '');
+            let isLocal = !window.location.protocol.startsWith("http");
+            
+            let roomId;
+            if (isLocal) {
+                roomId = window.location.hash.replace('#', '');
+            }
+            else {
+                roomId = window.location.pathname.replace('/', '');
+            }
+
             if (roomId == "") {
                 function dec2hex(dec) {
                     return ('0' + dec.toString(16)).substr(-2)
@@ -118,7 +127,12 @@
                     return Array.from(arr, dec2hex).join('')
                 }
                 roomId = generateId(36);
-                window.location.hash = '#' + roomId;
+                if (isLocal) {
+                    window.location.hash = '#' + roomId;
+                }
+                else {
+                    window.location.pathname = '/' + roomId;
+                }
             }
 
             let joinSound = document.createElement("audio");

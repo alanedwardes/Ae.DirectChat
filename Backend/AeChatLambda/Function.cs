@@ -33,9 +33,9 @@ namespace AeChatLambda
             [DataMember(Name = "roomId")]
             public string RoomId { get; set; }
             [DataMember(Name = "fromId")]
-            public string FromId { get; set; }
+            public Guid FromId { get; set; }
             [DataMember(Name = "toId")]
-            public string ToId { get; set; }
+            public Guid ToId { get; set; }
             [DataMember(Name = "type")]
             public string Type { get; set; }
             [DataMember(Name = "data")]
@@ -96,30 +96,10 @@ namespace AeChatLambda
             Console.WriteLine(input);
             var request = JsonConvert.DeserializeObject<WsRequest>(input, serializerSettings);
 
-            var envelope = JsonConvert.DeserializeObject<Envelope>(request.Body ?? "{}");
-
-            var roomId = envelope?.RoomId;
-
-            switch (request.RequestContext.RouteKey)
+            if(request.RequestContext.RouteKey == RouteKey.Default)
             {
-                case RouteKey.Connect:
-                    //AddConnection(roomId, request.RequestContext.ConnectionId).GetAwaiter().GetResult();
-                    break;
-                case RouteKey.Disconnect:
-                    RemoveConnection(roomId, request.RequestContext.ConnectionId).GetAwaiter().GetResult();
-                    break;
-                case RouteKey.Default:
-                    AddConnection(roomId, request.RequestContext.ConnectionId).GetAwaiter().GetResult();
-
-                    if (envelope.ToId == null)
-                    {
-                        Broadcast(roomId, request.RequestContext.ConnectionId, envelope).GetAwaiter().GetResult();
-                    }
-                    else
-                    {
-                        SendTo(roomId, request.RequestContext.ConnectionId, envelope.ToId, envelope).GetAwaiter().GetResult();
-                    }
-                    break;
+                var envelope = JsonConvert.DeserializeObject<Envelope>(request.Body);
+                ProcessMessage(envelope, request.RequestContext.ConnectionId).GetAwaiter().GetResult();
             }
 
             Console.WriteLine(JsonConvert.SerializeObject(request, serializerSettings));
@@ -127,48 +107,71 @@ namespace AeChatLambda
             return new MemoryStream(Encoding.UTF8.GetBytes("{}"));
         }
 
-        private Dictionary<string, AttributeValue> GetKey(string roomId, string connectionId)
+        private async Task ProcessMessage(Envelope envelope, string connectionId)
+        {
+            switch (envelope.Type)
+            {
+                case "discover":
+                    await AddConnection(envelope.RoomId, envelope.FromId, connectionId, Guid.Parse(JsonConvert.DeserializeObject<string>(envelope.Data)));
+                    envelope.Data = null; // Remove the session token
+                    await Broadcast(envelope, connectionId);
+                    break;
+                default:
+                    await SendTo(envelope);
+                    break;
+            }
+        }
+
+        private Dictionary<string, AttributeValue> GetKey(string roomId, Guid clientId)
         {
             return new Dictionary<string, AttributeValue>
             {
                 { "Room", new AttributeValue(roomId) },
-                { "Connection", new AttributeValue(connectionId) }
+                { "Client", new AttributeValue(clientId.ToString()) }
             };
         }
 
-        private async Task AddConnection(string roomId, string connectionId)
+        public Dictionary<string, AttributeValue> GetRow(string roomId, Guid clientId, string connectionId, Guid sessionId)
         {
-            await dynamodb.PutItemAsync("AeChat", GetKey(roomId, connectionId));
-        }
-
-        private async Task RemoveConnection(string roomId, string connectionId)
-        {
-            await dynamodb.DeleteItemAsync("AeChat", GetKey(roomId, connectionId));
-        }
-
-        private async Task SendTo(string roomId, string fromConnectionId, string toConnectionId, Envelope envelope)
-        {
-            var result = await dynamodb.GetItemAsync(new GetItemRequest
+            return new Dictionary<string, AttributeValue>
             {
-                TableName = "AeChat",
-                Key = GetKey(roomId, toConnectionId)
-            });
+                { "Room", new AttributeValue(roomId) },
+                { "Client", new AttributeValue(clientId.ToString()) },
+                { "Connection", new AttributeValue(connectionId) },
+                { "Session", new AttributeValue(sessionId.ToString()) }
+            };
+        }
 
+        private async Task AddConnection(string roomId, Guid clientId, string connectionId, Guid sessionId)
+        {
+            var result = await dynamodb.GetItemAsync("AeChat", GetKey(roomId, clientId));
+            if (result.Item.Count > 0 && Guid.Parse(result.Item["Session"].S) != sessionId)
+            {
+                // Don't do anything, the connection doesn't have the right session ID
+                return;
+            }
+
+            // Update the connection ID for this client
+            await dynamodb.PutItemAsync("AeChat", GetRow(roomId, clientId, connectionId, sessionId));
+        }
+
+        private async Task SendTo(Envelope envelope)
+        {
+            var result = await dynamodb.GetItemAsync("AeChat", GetKey(envelope.RoomId, envelope.ToId));
             if (result.Item.Count == 0)
             {
                 // The user isn't in this room
                 return;
             }
 
-            envelope.FromId = fromConnectionId;
             await gateway.PostToConnectionAsync(new PostToConnectionRequest
             {
-                ConnectionId = toConnectionId,
+                ConnectionId = result.Item["Connection"].S,
                 Data = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelope)))
             });
         }
 
-        private async Task Broadcast(string roomId, string connectionId, Envelope envelope)
+        private async Task Broadcast(Envelope envelope, string thisConnectionId)
         {
             var result = await dynamodb.QueryAsync(new QueryRequest
             {
@@ -176,21 +179,20 @@ namespace AeChatLambda
                 KeyConditionExpression = "Room = :room",
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    { ":room", new AttributeValue(roomId) }
+                    { ":room", new AttributeValue(envelope.RoomId) }
                 }
             });
 
             foreach (var connection in result.Items)
             {
                 string remoteConnectionId = connection["Connection"].S;
-                if (remoteConnectionId == connectionId)
+                if (remoteConnectionId == thisConnectionId)
                 {
                     continue;
                 }
 
                 try
                 {
-                    envelope.FromId = connectionId;
                     await gateway.PostToConnectionAsync(new PostToConnectionRequest
                     {
                         ConnectionId = remoteConnectionId,
@@ -199,7 +201,7 @@ namespace AeChatLambda
                 }
                 catch (GoneException)
                 {
-                    await RemoveConnection(roomId, remoteConnectionId);
+                    // Do nothing
                 }
             }
         }

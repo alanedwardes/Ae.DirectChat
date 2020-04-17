@@ -1,4 +1,5 @@
 import { UserMedia, UserMediaSettings } from "./UserMedia";
+import { v4 as uuidv4 } from 'uuid';
 import { Broker, IBroker, Envelope } from "./Broker";
 import { PeerConnector } from "./PeerConnector";
 import { VolumeUI, AudioSample } from "./VolumeUI";
@@ -16,6 +17,8 @@ export class ChatApp {
     public static GetMediaSettings(): UserMediaSettings { return ChatApp.userMedia.GetSettings(); }
     public static async SetMediaSettings(newSettings: UserMediaSettings): Promise<void> { await ChatApp.userMedia.SetSettings(newSettings); }
 
+    private static sessionId: string = uuidv4();
+    private static fromId: string = uuidv4();
     private static userMedia: UserMedia = new UserMedia();
     private static videoWall: VideoWall;
     private static localStream: MediaStream;
@@ -53,7 +56,7 @@ export class ChatApp {
             return new AudioSample(ChatApp.userMedia.GetSettings().AudioGain, ChatApp.userMedia.SampleInput());
         }
 
-        const broker = new Broker(roomId);
+        const broker = new Broker(roomId, this.fromId);
         await broker.Open();
 
         broker.OnMessage = async (message: Envelope) => {
@@ -102,6 +105,6 @@ export class ChatApp {
             }
         };
 
-        broker.Send(null, "discover", null);
+        broker.Send(ChatApp.sessionId, "discover", ChatApp.fromId);
     }
 }
