@@ -1,11 +1,11 @@
 export class AudioSample {
-    public constructor(gain: number, sample: number) {
-        this.Gain = gain;
-        this.Sample = sample;
+    public constructor(localSample: number, remoteSample: number) {
+        this.LocalSample = localSample;
+        this.RemoteSample = remoteSample;
     }
 
-    public readonly Gain: number
-    public readonly Sample: number
+    public readonly LocalSample: number
+    public readonly RemoteSample: number
 }
 
 interface OnNeedSample {
@@ -30,15 +30,15 @@ export class VolumeUI {
 
             this.context.fillStyle = "green";
 
-            if (sample.Sample > .80) {
+            if (sample.LocalSample > .80) {
                 this.context.fillStyle = "orange";
             }
 
-            if (sample.Sample > .95) {
+            if (sample.LocalSample > .95) {
                 this.context.fillStyle = "red";
             }
 
-            this.context.fillRect(0, 0, this.canvas.width * sample.Sample, 64);
+            this.context.fillRect(0, 0, this.canvas.width * sample.LocalSample, 64);
         }
 
         window.requestAnimationFrame(() => this.Animate());

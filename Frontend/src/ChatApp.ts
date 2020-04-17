@@ -55,7 +55,7 @@ export class ChatApp {
         this.SetLocalStream(await ChatApp.userMedia.GetMediaStream());
 
         volumeUI.OnNeedSample = () => {
-            return new AudioSample(ChatApp.userMedia.GetSettings().AudioGain, ChatApp.userMedia.SampleInput());
+            return new AudioSample(ChatApp.userMedia.SampleInput(), 0.5);
         }
 
         const broker = new Broker(roomId, this.fromId, this.sessionId);
