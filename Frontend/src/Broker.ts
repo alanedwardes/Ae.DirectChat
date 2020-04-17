@@ -19,18 +19,34 @@ export class Broker implements IBroker {
     private socket: WebSocket;
     private roomId: string;
     private fromId: string;
+    private sessionId: string;
 
     public OnMessage: OnMessageDelegate;
 
-    public constructor(roomId: string, fromId: string) {
+    public constructor(roomId: string, fromId: string, sessionId: string) {
         this.roomId = roomId;
         this.fromId = fromId;
+        this.sessionId = sessionId;
     }
 
     public async Open(): Promise<void> {
         this.socket = new WebSocket("wss://c4x3tpp039.execute-api.eu-west-1.amazonaws.com/default");
         this.socket.onmessage = (event: MessageEvent) => this.OnMessageInternal(event);
-        return new Promise(resolve => this.socket.onopen = () => resolve());
+        this.socket.onerror = (event: ErrorEvent) => console.error(event);
+        this.socket.onclose = (event: CloseEvent) => this.Open();
+        this.Ping();
+        return new Promise(resolve => this.socket.onopen = () => {
+            this.Send(this.sessionId, "discover", this.fromId);
+            resolve();
+        });
+    }
+
+    private Ping() : void {
+        setTimeout(() => this.Ping(), 60000);
+
+        if (this.socket != null && this.socket.readyState == 1) {
+            this.Send(null, "ping", this.fromId);
+        }
     }
 
     private OnMessageInternal(event: MessageEvent): void {

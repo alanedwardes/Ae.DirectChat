@@ -141,14 +141,20 @@
                 joinSound.play();
 
                 let li = document.createElement("li");
-                li.onclick = event => {
-                    ChatApp.ChatApp.GetStatistics(connectionId).then(statistics => {
-                        statistics.forEach(report => {
-                            console.log(report);
+
+                if (ChatApp.ChatApp.GetAttendeeId() == connectionId) {
+                    li.innerHTML = connectionId + " (you)";
+                }
+                else {
+                    li.onclick = event => {
+                        ChatApp.ChatApp.GetStatistics(connectionId).then(statistics => {
+                            statistics.forEach(report => {
+                                console.log(report);
+                            });
                         });
-                    });
-                };
-                li.innerHTML = connectionId;
+                    };
+                    li.innerHTML = connectionId;
+                }
                 document.querySelector("#attendeeList").appendChild(li)
             };
 

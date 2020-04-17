@@ -26,6 +26,8 @@ export class ChatApp {
     public static OnConnect: OnConnectDelegate;
     public static OnDisconnect: OnDisconnectDelegate;
 
+    public static GetAttendeeId(): string { return ChatApp.fromId; }
+
     public static async GetStatistics(connectionId: string): Promise<RTCStatsReport> {
         return await this.connectors[connectionId].GetStatistics();
     }
@@ -56,10 +58,16 @@ export class ChatApp {
             return new AudioSample(ChatApp.userMedia.GetSettings().AudioGain, ChatApp.userMedia.SampleInput());
         }
 
-        const broker = new Broker(roomId, this.fromId);
+        const broker = new Broker(roomId, this.fromId, this.sessionId);
         await broker.Open();
 
+        ChatApp.OnConnect(ChatApp.fromId);
+
         broker.OnMessage = async (message: Envelope) => {
+
+            if (message.FromId == ChatApp.fromId) {
+                return;
+            }
 
             if (!ChatApp.connectors.hasOwnProperty(message.FromId)) {
                 ChatApp.OnConnect(message.FromId);
@@ -104,7 +112,5 @@ export class ChatApp {
                 ChatApp.connectors[message.FromId].AddRemoteCandidates(message.Data);
             }
         };
-
-        broker.Send(ChatApp.sessionId, "discover", ChatApp.fromId);
     }
 }
