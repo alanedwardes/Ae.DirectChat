@@ -199,7 +199,34 @@
 
             document.querySelector('#audioControlsButton').addEventListener('click', event => {
                 document.querySelector('#audioControls').classList.remove("hidden");
+                drawAudioMeter();
             });
+
+            function drawAudioMeter() {
+                if (document.querySelector('#audioControls').classList.contains("hidden")) {
+                    return;
+                }
+
+                let canvas = document.getElementById("volumeCanvas");
+                let context = canvas.getContext("2d");
+                let sample = ChatApp.ChatApp.GetAudioLevel();
+
+                context.clearRect(0, 0, canvas.width, canvas.height)
+
+                context.fillStyle = "green";
+
+                if (sample > .80) {
+                    context.fillStyle = "orange";
+                }
+
+                if (sample > .95) {
+                    context.fillStyle = "red";
+                }
+
+                context.fillRect(0, 0, canvas.width * sample, 64);
+
+                window.requestAnimationFrame(() => drawAudioMeter());
+            }
 
             document.querySelector('#videoControlsButton').addEventListener('click', event => {
                 document.querySelector('#videoControls').classList.remove("hidden");

@@ -16,6 +16,8 @@ interface OnDisconnectDelegate {
 export class ChatApp {
     public static NewGuid(): string { return uuidv4(); }
 
+    public static GetAudioLevel(): number { return ChatApp.userMedia.SampleInput(); }
+
     public static GetMediaSettings(): UserMediaSettings { return ChatApp.userMedia.GetSettings(); }
     public static async SetMediaSettings(newSettings: UserMediaSettings): Promise<void> { await ChatApp.userMedia.SetSettings(newSettings); }
 
@@ -33,7 +35,7 @@ export class ChatApp {
 
     public static async Start(roomId: string): Promise<void> {
         ChatApp.videoWall = new VideoWall();
-        const volumeUI = new VolumeUI();
+        //const volumeUI = new VolumeUI();
 
         ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
             ChatApp.localStream = mediaStream;
@@ -46,9 +48,9 @@ export class ChatApp {
 
         await ChatApp.userMedia.GetMediaStream();
 
-        volumeUI.OnNeedSample = () => {
-            return new AudioSample(ChatApp.userMedia.SampleInput(), 0.5);
-        }
+        //volumeUI.OnNeedSample = () => {
+            //return new AudioSample(ChatApp.userMedia.SampleInput(), 0.5);
+        //}
 
         const broker: IBroker = new Broker(roomId, this.fromId, this.sessionId);
 
