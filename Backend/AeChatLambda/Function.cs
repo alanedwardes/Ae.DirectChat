@@ -164,11 +164,7 @@ namespace AeChatLambda
                 return;
             }
 
-            await gateway.PostToConnectionAsync(new PostToConnectionRequest
-            {
-                ConnectionId = result.Item["Connection"].S,
-                Data = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelope)))
-            });
+            await SendJson(result.Item["Connection"].S, envelope);
         }
 
         private async Task Broadcast(Envelope envelope, string thisConnectionId)
@@ -191,18 +187,25 @@ namespace AeChatLambda
                     continue;
                 }
 
-                try
-                {
-                    await gateway.PostToConnectionAsync(new PostToConnectionRequest
-                    {
-                        ConnectionId = remoteConnectionId,
-                        Data = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelope)))
-                    });
-                }
-                catch (GoneException)
-                {
-                    // Do nothing
-                }
+                await SendJson(remoteConnectionId, envelope);
+            }
+        }
+
+        private async Task SendJson(string connectionId, object json)
+        {
+            var request = new PostToConnectionRequest
+            {
+                ConnectionId = connectionId,
+                Data = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(json)))
+            };
+
+            try
+            {
+                await gateway.PostToConnectionAsync(request);
+            }
+            catch (GoneException)
+            {
+                // Do nothing
             }
         }
     }
