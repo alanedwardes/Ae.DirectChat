@@ -24,6 +24,7 @@ export class UserMedia implements IUserMedia {
     private analyserNode: AnalyserNode;
     private localListenElement: HTMLAudioElement;
     private currentStream: MediaStream;
+    private inputAudioChannels: number;
 
     private currentSettings: UserMediaSettings = new UserMediaSettings();
 
@@ -40,7 +41,7 @@ export class UserMedia implements IUserMedia {
         let shouldRefreshLocalListen: boolean;
 
         if (this.currentSettings.AudioGain != newSettings.AudioGain) {
-            this.gainNode.gain.value = newSettings.AudioGain;
+            this.SetGain(newSettings.AudioGain);
         }
 
         if (this.currentSettings.AudioAutoGainControl != newSettings.AudioAutoGainControl) {
@@ -162,14 +163,23 @@ export class UserMedia implements IUserMedia {
         return peak;
     }
 
+    private SetGain(newGain: number) : void {
+        // In Chrome and Firefox, if a user has multiple channels
+        // the gain needs to be multiplied by each. For example,
+        // with 2 channels, the overall volume maxes out at 50%.
+        // I'm not sure whether this is a browser bug or expected.
+        this.gainNode.gain.value = this.inputAudioChannels * newGain;
+    }
+
     private ProcessAudioTrackToMono(stream: MediaStream): MediaStream {
         const source: MediaStreamAudioSourceNode = this.audioContext.createMediaStreamSource(stream);
+        this.inputAudioChannels = source.channelCount;
 
         const destination: MediaStreamAudioDestinationNode = this.audioContext.createMediaStreamDestination();
         destination.channelCount = this.currentSettings.AudioStereo ? 2 : 1;
 
         this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.value = this.currentSettings.AudioGain;
+        this.SetGain(this.currentSettings.AudioGain);
 
         source.connect(this.gainNode);
 
