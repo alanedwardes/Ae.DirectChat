@@ -14,6 +14,8 @@ interface OnDisconnectDelegate {
 }
 
 export class ChatApp {
+    public static NewGuid(): string { return uuidv4(); }
+
     public static GetMediaSettings(): UserMediaSettings { return ChatApp.userMedia.GetSettings(); }
     public static async SetMediaSettings(newSettings: UserMediaSettings): Promise<void> { await ChatApp.userMedia.SetSettings(newSettings); }
 
