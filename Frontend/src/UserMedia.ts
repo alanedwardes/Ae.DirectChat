@@ -10,6 +10,7 @@ export class UserMediaSettings {
     public AudioAutoGainControl: boolean = false;
     public AudioNoiseSuppression: boolean = false;
     public AudioLocalListen: boolean = false;
+    public AudioStereo: boolean = false;
     public AudioGain: number = 1;
 }
 
@@ -64,6 +65,11 @@ export class UserMedia implements IUserMedia {
 
         if (this.currentSettings.AudioLocalListen != newSettings.AudioLocalListen) {
             shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioStereo != newSettings.AudioStereo) {
+            shouldRefreshLocalListen = true;
+            shouldRefreshMediaAccess = true;
         }
 
         this.currentSettings = newSettings;
@@ -160,7 +166,7 @@ export class UserMedia implements IUserMedia {
         const source: MediaStreamAudioSourceNode = this.audioContext.createMediaStreamSource(stream);
 
         const destination: MediaStreamAudioDestinationNode = this.audioContext.createMediaStreamDestination();
-        destination.channelCount = 1;
+        destination.channelCount = this.currentSettings.AudioStereo ? 2 : 1;
 
         this.gainNode = this.audioContext.createGain();
         this.gainNode.gain.value = this.currentSettings.AudioGain;
