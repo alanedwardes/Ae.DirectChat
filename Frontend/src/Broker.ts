@@ -1,6 +1,7 @@
 export interface IBroker {
     Open(): Promise<void>
     Send(payload: any, type: string, connectionId: string): void
+    GetLocalClientId(): string;
     OnMessage: OnMessageDelegate;
 }
 
@@ -27,6 +28,9 @@ export class Broker implements IBroker {
         this.roomId = roomId;
         this.fromId = fromId;
         this.sessionId = sessionId;
+    }
+    GetLocalClientId(): string {
+        return this.fromId;
     }
 
     public async Open(): Promise<void> {

@@ -1,6 +1,9 @@
 export interface IPeerConnector {
-    StartLocalStream(stream: MediaStream): void
-    GetStatistics(): Promise<RTCStatsReport>
+    StartLocalStream(stream: MediaStream): void;
+    GetStatistics(): Promise<RTCStatsReport>;
+    AcceptAnswer(answer: RTCSessionDescriptionInit): Promise<void>;
+    AcceptOffer(offer: RTCSessionDescriptionInit): Promise<void>;
+    AddRemoteCandidates(candidates: RTCIceCandidate[]): Promise<void>;
     OnHasIceCandidates: OnHasIceCandidatesDelegate;
     OnHasStreams: OnHasStreamsDelegate;
     OnHasOffer: OnHasOfferDelegate;
@@ -80,7 +83,7 @@ export class PeerConnector implements IPeerConnector {
             try {
                 await this.connector.addIceCandidate(candidate);
             }
-            catch{
+            catch (err) {
                 this.remoteCandidates.push(candidate);
             }
         });

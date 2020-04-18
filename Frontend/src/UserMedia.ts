@@ -69,7 +69,7 @@ export class UserMedia implements IUserMedia {
         this.currentSettings = newSettings;
 
         if (shouldRefreshMediaAccess) {
-            this.OnMediaStreamAvailable(await this.GetMediaStream());
+            await this.GetMediaStream();
         }
 
         if (shouldRefreshLocalListen) {
@@ -77,7 +77,7 @@ export class UserMedia implements IUserMedia {
         }
     }
 
-    private EvaluateLocalListen() : void {
+    private EvaluateLocalListen(): void {
         if (this.localListenElement == null) {
             this.localListenElement = document.createElement("audio");
         }
@@ -92,24 +92,23 @@ export class UserMedia implements IUserMedia {
     }
 
     public async GetMediaStream(): Promise<MediaStream> {
-        const audioConstraints : MediaTrackConstraints = {};
+        const audioConstraints: MediaTrackConstraints = {};
         audioConstraints.noiseSuppression = this.currentSettings.AudioNoiseSuppression;
         audioConstraints.echoCancellation = this.currentSettings.AudioEchoCancellation;
         audioConstraints.autoGainControl = this.currentSettings.AudioAutoGainControl;
 
-        const videoWidthRange : ConstrainULongRange = {};
+        const videoWidthRange: ConstrainULongRange = {};
         videoWidthRange.ideal = 1280;
-        const videoHeightRange : ConstrainULongRange = {};
+        const videoHeightRange: ConstrainULongRange = {};
         videoHeightRange.ideal = 720;
 
-        const videoConstraints : MediaTrackConstraints = {};
+        const videoConstraints: MediaTrackConstraints = {};
         videoConstraints.width = videoWidthRange;
         videoConstraints.height = videoHeightRange;
 
-        const constraints : MediaStreamConstraints = {};
+        const constraints: MediaStreamConstraints = {};
         constraints.audio = audioConstraints;
-        if (this.currentSettings.VideoEnabled)
-        {
+        if (this.currentSettings.VideoEnabled) {
             constraints.video = videoConstraints;
         }
 
@@ -133,10 +132,19 @@ export class UserMedia implements IUserMedia {
         }
 
         this.currentStream = combined;
-        return combined;
+
+        if (this.OnMediaStreamAvailable != null) {
+            this.OnMediaStreamAvailable(this.currentStream);
+        }
+
+        return this.currentStream;
     }
 
     public SampleInput(): number {
+        if (this.analyserNode == null) {
+            return 0;
+        }
+
         const sampleBuffer = new Float32Array(this.analyserNode.fftSize);
 
         this.analyserNode.getFloatTimeDomainData(sampleBuffer);
