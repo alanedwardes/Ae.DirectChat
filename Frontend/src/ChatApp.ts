@@ -1,7 +1,6 @@
 import { UserMedia, UserMediaSettings } from "./UserMedia";
 import { v4 as uuidv4 } from 'uuid';
 import { Broker, IBroker } from "./Broker";
-import { VolumeUI, AudioSample } from "./VolumeUI";
 import { VideoWall } from "./VideoWallUI";
 import { ConnectionManager } from "./ConnectionManager";
 
@@ -35,7 +34,6 @@ export class ChatApp {
 
     public static async Start(roomId: string): Promise<void> {
         ChatApp.videoWall = new VideoWall();
-        //const volumeUI = new VolumeUI();
 
         ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
             ChatApp.localStream = mediaStream;
@@ -47,10 +45,6 @@ export class ChatApp {
         };
 
         await ChatApp.userMedia.GetMediaStream();
-
-        //volumeUI.OnNeedSample = () => {
-            //return new AudioSample(ChatApp.userMedia.SampleInput(), 0.5);
-        //}
 
         const broker: IBroker = new Broker(roomId, this.fromId, this.sessionId);
 
