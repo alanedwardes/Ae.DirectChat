@@ -38,7 +38,7 @@ export class ChatApp {
         ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
             ChatApp.localStream = mediaStream;
             ChatApp.videoWall.SetLocalStream(mediaStream);
-    
+
             if (ChatApp.connectionManager != null) {
                 ChatApp.connectionManager.RefreshLocalStream();
             }
@@ -50,14 +50,13 @@ export class ChatApp {
             return new AudioSample(ChatApp.userMedia.SampleInput(), 0.5);
         }
 
-        const broker : IBroker = new Broker(roomId, this.fromId, this.sessionId);
+        const broker: IBroker = new Broker(roomId, this.fromId, this.sessionId);
 
         this.connectionManager = new ConnectionManager(broker);
         this.connectionManager.OnClientConnect = (clientId) => ChatApp.OnConnect(clientId);
         this.connectionManager.OnClientDisconnect = (clientId) => ChatApp.OnDisconnect(clientId);
         this.connectionManager.OnNeedLocalStream = () => ChatApp.localStream;
-        this.connectionManager.OnHasStreams = (clientId, streams) => 
-        {
+        this.connectionManager.OnHasStreams = (clientId, streams) => {
             streams.forEach(stream => {
                 ChatApp.videoWall.AddRemoteStream(stream);
             });

@@ -12,8 +12,8 @@ class VideoStream {
         this.Element.muted = muted;
         this.Element.play();
 
-        const audioTracks : MediaStreamTrack[] = mediaStream.getAudioTracks();
-        const videoTracks : MediaStreamTrack[] = mediaStream.getVideoTracks();
+        const audioTracks: MediaStreamTrack[] = mediaStream.getAudioTracks();
+        const videoTracks: MediaStreamTrack[] = mediaStream.getVideoTracks();
 
         if (audioTracks.length > 0) {
             this.AudioTrack = audioTracks[0];
@@ -121,7 +121,7 @@ export class VideoWall {
         if (this.remoteStreams.length > 0) {
             const videoStream: VideoStream = this.remoteStreams[this.remoteStreams.length - 1];
 
-            if (videoStream.VideoTrack != null){
+            if (videoStream.VideoTrack != null) {
 
                 const localVideoSize: Size = this.CalculateAspectRatioFit(
                     videoStream.Element.videoWidth * 99,
@@ -130,7 +130,7 @@ export class VideoWall {
                     this.canvas.height);
 
                 this.context.drawImage(videoStream.Element, 0, 0, localVideoSize.Width, localVideoSize.Height);
-            }            
+            }
         }
     }
 }

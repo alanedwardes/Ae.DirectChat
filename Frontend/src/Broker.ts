@@ -45,7 +45,7 @@ export class Broker implements IBroker {
         });
     }
 
-    private Ping() : void {
+    private Ping(): void {
         setTimeout(() => this.Ping(), 60000);
 
         if (this.socket != null && this.socket.readyState == 1) {
