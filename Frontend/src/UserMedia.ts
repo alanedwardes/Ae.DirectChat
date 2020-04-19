@@ -34,7 +34,7 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
 export class UserMediaSettings {
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera");
 
-    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(0, 20, 0.5, 1, "Local Gain", "The amount of amplification to add to your microphone");
+    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(0, 50, 0.5, 1, "Local Gain", "The amount of amplification to add to your microphone");
     public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it");
     public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves");
     public AudioAutoGainControl: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Auto Gain", "Enable automatic volume control");
