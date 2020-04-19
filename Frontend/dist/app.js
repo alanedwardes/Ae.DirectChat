@@ -45,6 +45,8 @@ function initialise() {
         document.querySelector('#remoteVideo').removeChild(remoteVideo[connectionId]);
         delete remoteVideo[connectionId];
 
+        flowRemoteVideo();
+
         let list = document.querySelector("#attendeeList");
         for (let i in list.children) {
             let item = list.children[i];
@@ -55,19 +57,25 @@ function initialise() {
     };
 
     ChatApp.ChatApp.OnRemoteStream = (clientId, mediaStream) => {
-        let video;
+        let div;
         if (remoteVideo.hasOwnProperty(clientId)) {
-            video = remoteVideo[clientId];
+            div = remoteVideo[clientId];
         }
         else {
-            video = document.createElement("video");
-            video.className = "remoteVideo";
-            document.querySelector('#remoteVideo').appendChild(video);
-            remoteVideo[clientId] = video;
+            div = document.createElement("div");
+            div.className = "remoteVideo";
+            document.querySelector('#remoteVideo').appendChild(div);
+
+            let video = document.createElement("video");
+            div.appendChild(video);
+            remoteVideo[clientId] = div;
         }
 
+        let video = div.children[0];
         video.srcObject = mediaStream;
         video.play();
+
+        flowRemoteVideo();
     }
 
     ChatApp.ChatApp.OnLocalStream = (mediaStream) => {
@@ -108,6 +116,30 @@ function initialise() {
             event.srcElement.parentElement.classList.add("hidden");
         });
     });
+}
+
+function flowRemoteVideo() {
+    let videos = Array.prototype.slice.call(document.querySelectorAll('.remoteVideo'));
+    let videoCount = videos.length;
+    let rowCount = Math.ceil(videoCount / 2);
+    let columnCount = Math.ceil(videoCount / 2);
+
+    let currentColumn = 0;
+    let currentRow = 0;
+
+    do {
+        let video = videos.pop();
+
+        video.style['grid-area'] = (currentRow + 1) + " / " + (currentColumn + 1) + " / span 1 / span 1";
+
+        currentColumn++;
+        if (currentColumn > columnCount - 1)
+        {
+            currentColumn = 0;
+            currentRow++;
+        }
+    }
+    while (videos.length > 0);
 }
 
 function createSetting(settingKey, settingValue, parent) {
