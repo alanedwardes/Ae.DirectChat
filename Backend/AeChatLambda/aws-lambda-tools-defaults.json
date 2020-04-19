@@ -17,5 +17,5 @@
     "function-name"        : "AeChat",
     "function-role"        : "arn:aws:iam::687908690092:role/service-role/AeChat-role-r8mxh7ar",
     "tracing-mode"         : "PassThrough",
-    "environment-variables" : "\"GATEWAY_URL\"=\"https://c4x3tpp039.execute-api.eu-west-1.amazonaws.com/default\""
+    "environment-variables" : "\"GATEWAY_URL\"=\"https://c4x3tpp039.execute-api.eu-west-1.amazonaws.com/default\";\"SESSION_TABLE\"=\"AeChat\""
 }
