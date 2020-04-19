@@ -79,7 +79,7 @@ export class PeerConnector implements IPeerConnector {
     }
 
     public async AddRemoteCandidates(candidates: RTCIceCandidate[]): Promise<void> {
-        await candidates.forEach(async (candidate: RTCIceCandidate) => {
+        candidates.forEach(async (candidate: RTCIceCandidate) => {
             try {
                 await this.connector.addIceCandidate(candidate);
             }
@@ -98,7 +98,7 @@ export class PeerConnector implements IPeerConnector {
 
         await this.connector.setLocalDescription(await this.connector.createAnswer());
 
-        await this.remoteCandidates.forEach(async (candidate: RTCIceCandidate) => {
+        this.remoteCandidates.forEach(async (candidate: RTCIceCandidate) => {
             await this.connector.addIceCandidate(candidate);
         });
         this.remoteCandidates = new Array<RTCIceCandidate>();

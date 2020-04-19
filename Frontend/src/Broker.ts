@@ -37,7 +37,7 @@ export class Broker implements IBroker {
         this.socket = new WebSocket("wss://c4x3tpp039.execute-api.eu-west-1.amazonaws.com/default");
         this.socket.onmessage = (event: MessageEvent) => this.OnMessageInternal(event);
         this.socket.onerror = (event: ErrorEvent) => console.error(event);
-        this.socket.onclose = (event: CloseEvent) => this.Open();
+        this.socket.onclose = () => this.Open();
         this.Ping();
         return new Promise(resolve => this.socket.onopen = () => {
             this.Send(this.sessionId, "discover", this.fromId);
@@ -54,7 +54,7 @@ export class Broker implements IBroker {
     }
 
     private OnMessageInternal(event: MessageEvent): void {
-        const data: string = JSON.parse(event.data);
+        const data: any = JSON.parse(event.data);
         const envelope: Envelope = new Envelope();
         envelope.Data = JSON.parse(data["data"]);
         envelope.RoomId = data["roomId"];
