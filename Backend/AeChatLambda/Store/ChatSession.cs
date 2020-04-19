@@ -8,7 +8,7 @@ namespace AeChatLambda.Store
     {
         public string ConnectionId { get; set; }
         public Guid ClientId { get; set; }
-        public string RoomId { get; set; }
+        public Guid RoomId { get; set; }
         public Guid SessionId { get; set; }
         public DateTimeOffset Expiry { get; set; }
 
@@ -27,7 +27,7 @@ namespace AeChatLambda.Store
 
             return new ChatSession
             {
-                RoomId = attributes[RoomAttribute].S,
+                RoomId = Guid.Parse(attributes[RoomAttribute].S),
                 ConnectionId = attributes[ConnectionAttribute].S,
                 ClientId = Guid.Parse(attributes[ClientAttribute].S),
                 SessionId = Guid.Parse(attributes[SessionAttribute].S),
@@ -37,11 +37,11 @@ namespace AeChatLambda.Store
 
         public static Dictionary<string, AttributeValue> ToKey(ChatSession session) => ToKey(session.RoomId, session.ClientId);
 
-        public static Dictionary<string, AttributeValue> ToKey(string roomId, Guid clientId)
+        public static Dictionary<string, AttributeValue> ToKey(Guid roomId, Guid clientId)
         {
             return new Dictionary<string, AttributeValue>
             {
-                { RoomAttribute, new AttributeValue(roomId) },
+                { RoomAttribute, new AttributeValue(roomId.ToString()) },
                 { ClientAttribute, new AttributeValue(clientId.ToString()) }
             };
         }

@@ -71,7 +71,7 @@ namespace AeChatLambda
             }
         }
 
-        private async Task AddConnection(string roomId, Guid clientId, string connectionId, Guid sessionId)
+        private async Task AddConnection(Guid roomId, Guid clientId, string connectionId, Guid sessionId)
         {
             var result = await dynamo.GetItemAsync(SessionTable, ChatSession.ToKey(roomId, clientId));
             var session = ChatSession.FromAttributes(result.Item);
@@ -111,7 +111,7 @@ namespace AeChatLambda
                 KeyConditionExpression = "Room = :room",
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    { ":room", new AttributeValue(envelope.RoomId) }
+                    { ":room", new AttributeValue(envelope.RoomId.ToString()) }
                 }
             });
 

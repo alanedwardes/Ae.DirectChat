@@ -7,7 +7,7 @@ namespace AeChatLambda.Entities
     public class Envelope
     {
         [DataMember(Name = "roomId")]
-        public string RoomId { get; set; }
+        public Guid RoomId { get; set; }
         [DataMember(Name = "fromId")]
         public Guid FromId { get; set; }
         [DataMember(Name = "toId")]
