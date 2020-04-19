@@ -24,10 +24,13 @@ button,
     padding: .5em 1em;
 }
 
-body {
-    overflow: hidden;
+html {
     width: 100%;
     height: 100%;
+}
+
+body {
+    overflow: hidden;
     padding: 0;
     margin: 0;
     background: radial-gradient(#444, #222);
