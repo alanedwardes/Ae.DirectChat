@@ -84,7 +84,8 @@ namespace AeChatLambda
                     ClientId = clientId,
                     ConnectionId = connectionId,
                     SessionId = sessionId,
-                    RoomId = roomId
+                    RoomId = roomId,
+                    Expiry = DateTimeOffset.UtcNow.AddHours(2) // API Gateway WebSocket timeout
                 };
 
                 // Upsert the connection ID for this client

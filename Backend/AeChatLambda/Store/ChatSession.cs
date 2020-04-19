@@ -10,11 +10,13 @@ namespace AeChatLambda.Store
         public Guid ClientId { get; set; }
         public string RoomId { get; set; }
         public Guid SessionId { get; set; }
+        public DateTimeOffset Expiry { get; set; }
 
         public const string RoomAttribute = "Room";
         public const string ConnectionAttribute = "Connection";
         public const string ClientAttribute = "Client";
         public const string SessionAttribute = "Session";
+        public const string ExpiryAttribute = "Expiry";
 
         public static ChatSession FromAttributes(Dictionary<string, AttributeValue> attributes)
         {
@@ -29,6 +31,7 @@ namespace AeChatLambda.Store
                 ConnectionId = attributes[ConnectionAttribute].S,
                 ClientId = Guid.Parse(attributes[ClientAttribute].S),
                 SessionId = Guid.Parse(attributes[SessionAttribute].S),
+                Expiry = DateTimeOffset.FromUnixTimeSeconds(long.Parse(attributes[ExpiryAttribute].N))
             };
         }
 
@@ -48,6 +51,7 @@ namespace AeChatLambda.Store
             var attributes = ToKey(chatSession);
             attributes.Add(ConnectionAttribute, new AttributeValue(chatSession.ConnectionId.ToString()));
             attributes.Add(SessionAttribute, new AttributeValue(chatSession.SessionId.ToString()));
+            attributes.Add(ExpiryAttribute, new AttributeValue { N = chatSession.Expiry.ToUnixTimeSeconds().ToString() });
             return attributes;
         }
     }
