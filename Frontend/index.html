@@ -32,6 +32,7 @@
     }
 
     body {
+        overflow:hidden;
         width:100%;
         height:100%;
         padding:0;
@@ -64,15 +65,24 @@
         background:#333;
     }
 
-    #videoWall {
-        position: absolute;
+    #localVideo {
+        position:absolute;
+        right:1em;
+        bottom:1em;
+        width:20%;
+    }
+
+    .remoteVideo {
+        position:absolute;
+        left:0px;
+        right:0px;
+        height: 100%;
         z-index: -1;
-        left: 0;
-        top: 0;
     }
 </style>
 
 <body>
+    <div id="remoteVideo"></div>
     <button id="audioControlsButton">🎤 Audio Controls</button>
     <button id="videoControlsButton">📷 Video Controls</button>
     <button id="attendeeWindowButton">🧍 Attendees</button>
@@ -103,7 +113,7 @@
         <p>🧍 Attendees</p>
         <ol id="attendeeList"></ol>
     </div>
-    <canvas id="videoWall"></canvas>
+    <video muted id="localVideo"></video>
     <script src="dist/bundle.js"></script>
     <script>
         window.onload = () => {
@@ -143,10 +153,15 @@
                 document.querySelector("#attendeeList").appendChild(li)
             };
 
+            let remoteVideo = {};
+
             let leaveSound = document.createElement("audio");
             leaveSound.src = "https://s.edward.es/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
             ChatApp.ChatApp.OnDisconnect = connectionId => {
                 leaveSound.play();
+
+                document.querySelector('#remoteVideo').removeChild(remoteVideo[connectionId]);
+                delete remoteVideo[connectionId];
 
                 let list = document.querySelector("#attendeeList");
                 for (let i in list.children){
@@ -156,6 +171,29 @@
                     }
                 }
             };
+
+            ChatApp.ChatApp.OnRemoteStream = (clientId, mediaStream) => {
+                let video;
+                if (remoteVideo.hasOwnProperty(clientId)) {
+                    video = remoteVideo[clientId];
+                }
+                else {
+                    video = document.createElement("video");
+                    video.className = "remoteVideo";
+                    document.querySelector('#remoteVideo').appendChild(video);
+                    remoteVideo[clientId] = video;
+                }
+
+                video.srcObject = mediaStream;
+                video.play();
+            }
+
+            ChatApp.ChatApp.OnLocalStream = (mediaStream) => {
+                let video = document.querySelector('#localVideo');
+                video.srcObject = mediaStream;
+                video.play();
+            }
+
             ChatApp.ChatApp.Start(roomId);
 
             setGainValue(1);

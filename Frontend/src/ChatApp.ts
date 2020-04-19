@@ -1,7 +1,6 @@
 import { UserMedia, UserMediaSettings } from "./UserMedia";
 import { v4 as uuidv4 } from 'uuid';
 import { Broker, IBroker } from "./Broker";
-import { VideoWall } from "./VideoWallUI";
 import { ConnectionManager } from "./ConnectionManager";
 
 interface OnConnectDelegate {
@@ -10,6 +9,14 @@ interface OnConnectDelegate {
 
 interface OnDisconnectDelegate {
     (connectionId: string): void;
+}
+
+interface OnLocalStreamDelegate {
+    (mediaStream: MediaStream): void;
+}
+
+interface OnRemoteStreamDelegate {
+    (clientId: string, mediaStream: MediaStream) : void;
 }
 
 export class ChatApp {
@@ -23,21 +30,20 @@ export class ChatApp {
     private static sessionId: string = uuidv4();
     private static fromId: string = uuidv4();
     private static userMedia: UserMedia = new UserMedia();
-    private static videoWall: VideoWall;
     private static localStream: MediaStream;
     private static connectionManager: ConnectionManager;
 
     public static OnConnect: OnConnectDelegate;
     public static OnDisconnect: OnDisconnectDelegate;
+    public static OnLocalStream: OnLocalStreamDelegate;
+    public static OnRemoteStream: OnRemoteStreamDelegate;
 
     public static GetAttendeeId(): string { return ChatApp.fromId; }
 
     public static async Start(roomId: string): Promise<void> {
-        ChatApp.videoWall = new VideoWall();
-
         ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
             ChatApp.localStream = mediaStream;
-            ChatApp.videoWall.SetLocalStream(mediaStream);
+            ChatApp.OnLocalStream(mediaStream);
 
             if (ChatApp.connectionManager != null) {
                 ChatApp.connectionManager.RefreshLocalStream();
@@ -54,7 +60,7 @@ export class ChatApp {
         this.connectionManager.OnNeedLocalStream = () => ChatApp.localStream;
         this.connectionManager.OnHasStreams = (clientId, streams) => {
             streams.forEach(stream => {
-                ChatApp.videoWall.AddRemoteStream(stream);
+                ChatApp.OnRemoteStream(clientId, stream);
             });
         };
 
