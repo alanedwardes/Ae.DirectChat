@@ -12,10 +12,10 @@ function initialise() {
     if (roomId == "") {
         roomId = ChatApp.ChatApp.NewGuid();
         if (isLocal) {
-            window.location.hash = '#' + roomId;
+            window.history.replaceState(null, document.title, '#' + roomId);
         }
         else {
-            window.location.pathname = '/' + roomId;
+            window.history.replaceState(null, document.title, '/' + roomId);
         }
     }
 
