@@ -4,14 +4,54 @@ export interface IUserMedia {
     SetSettings(newSettings: UserMediaSettings): Promise<void>;
 }
 
+export class UserMediaSetting<T> {
+    constructor(value: T, name: string, description: string) {
+        this.Name = name;
+        this.Description = description;
+        this.Value = value;
+    }
+
+    public readonly Name : string;
+    public readonly Description : string;
+    public Feature: string = null;
+    public Value: T;
+}
+
+export class UserMediaSettingsRange extends UserMediaSetting<number> {
+    constructor(min: number, max: number, step: number, value: number, name: string, description: string) {
+        super(value, name, description);
+        this.Min = min;
+        this.Max = max;
+        this.Step = step;
+        this.Feature = "range";
+    }
+
+    public readonly Min: number;
+    public readonly Max: number;
+    public readonly Step: number;
+}
+
 export class UserMediaSettings {
-    public VideoEnabled: boolean = false;
-    public AudioEchoCancellation: boolean = false;
-    public AudioAutoGainControl: boolean = false;
-    public AudioNoiseSuppression: boolean = false;
-    public AudioLocalListen: boolean = false;
-    public AudioStereo: boolean = false;
-    public AudioGain: number = 1;
+    public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera");
+
+    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(0, 20, 0.5, 1, "Local Gain", "The amount of amplification to add to your microphone");
+    public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it");
+    public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves");
+    public AudioAutoGainControl: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Auto Gain", "Enable automatic volume control");
+    public AudioNoiseSuppression: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Noise Suppression", "Try to filter out background sounds");
+    public AudioStereo: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Stereo (Firefox attendees only)", null);
+
+    public AudioCompressor: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Audio Compressor", null);;
+    // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/threshold
+    public AudioCompressorThreshold: UserMediaSettingsRange = new UserMediaSettingsRange(-100, 0, 1, -24, "Compressor Threshold", "The decibel value above which the compression will start taking effect");
+    // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/knee
+    public AudioCompressorKnee: UserMediaSettingsRange = new UserMediaSettingsRange(0, 40, 1, 30, "Compressor Knee", "The decibel value representing the range above the threshold where the curve smoothly transitions to the compressed portion");
+    // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/ratio
+    public AudioCompressorRatio: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 1, 12, "Compressor Ratio", "The amount of change, in dB, needed in the input for a 1 dB change in the output");
+    // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/attack
+    public AudioCompressorAttack: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.001, 0.003, "Compressor Attack", "The amount of time, in seconds, required to reduce the gain by 10 dB");
+    // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/release
+    public AudioCompressorRelease: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.25, 0.25, "Compressor Release", "The amount of time, in seconds, required to increase the gain by 10 dB");
 }
 
 interface OnMediaStreamAvailable {
@@ -22,6 +62,7 @@ export class UserMedia implements IUserMedia {
     private audioContext: AudioContext;
     private gainNode: GainNode;
     private analyserNode: AnalyserNode;
+    private compressorNode: DynamicsCompressorNode;
     private localListenElement: HTMLAudioElement;
     private currentStream: MediaStream;
     private inputAudioChannels: number;
@@ -31,47 +72,50 @@ export class UserMedia implements IUserMedia {
     public OnMediaStreamAvailable: OnMediaStreamAvailable;
 
     public GetSettings(): UserMediaSettings {
-        let settingsCopy = new UserMediaSettings();
-        Object.assign(settingsCopy, this.currentSettings);
-        return settingsCopy;
+        return JSON.parse(JSON.stringify(this.currentSettings));
     }
 
     public async SetSettings(newSettings: UserMediaSettings): Promise<void> {
         let shouldRefreshMediaAccess: boolean;
         let shouldRefreshLocalListen: boolean;
 
-        if (this.currentSettings.AudioGain != newSettings.AudioGain) {
-            this.SetGain(newSettings.AudioGain);
-        }
-
-        if (this.currentSettings.AudioAutoGainControl != newSettings.AudioAutoGainControl) {
+        if (this.currentSettings.AudioAutoGainControl.Value != newSettings.AudioAutoGainControl.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioEchoCancellation != newSettings.AudioEchoCancellation) {
+        if (this.currentSettings.AudioEchoCancellation.Value != newSettings.AudioEchoCancellation.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioNoiseSuppression != newSettings.AudioNoiseSuppression) {
+        if (this.currentSettings.AudioNoiseSuppression.Value != newSettings.AudioNoiseSuppression.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.VideoEnabled != newSettings.VideoEnabled) {
+        if (this.currentSettings.VideoEnabled.Value != newSettings.VideoEnabled.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioLocalListen != newSettings.AudioLocalListen) {
+        if (this.currentSettings.AudioLocalListen.Value != newSettings.AudioLocalListen.Value) {
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioStereo != newSettings.AudioStereo) {
+        if (this.currentSettings.AudioStereo.Value != newSettings.AudioStereo.Value) {
             shouldRefreshLocalListen = true;
             shouldRefreshMediaAccess = true;
         }
+
+        if (this.currentSettings.AudioCompressor.Value != newSettings.AudioCompressor.Value) {
+            shouldRefreshLocalListen = true;
+            shouldRefreshMediaAccess = true;
+        }
+
+        // These are cheap so don't need to be switched on/off
+        this.SetCompressionParameters(newSettings);
+        this.SetGainParameters(newSettings);
 
         this.currentSettings = newSettings;
 
@@ -89,7 +133,7 @@ export class UserMedia implements IUserMedia {
             this.localListenElement = document.createElement("audio");
         }
 
-        if (this.currentSettings.AudioLocalListen) {
+        if (this.currentSettings.AudioLocalListen.Value) {
             this.localListenElement.srcObject = this.currentStream;
             this.localListenElement.play();
         }
@@ -100,9 +144,9 @@ export class UserMedia implements IUserMedia {
 
     public async GetMediaStream(): Promise<MediaStream> {
         const audioConstraints: MediaTrackConstraints = {};
-        audioConstraints.noiseSuppression = this.currentSettings.AudioNoiseSuppression;
-        audioConstraints.echoCancellation = this.currentSettings.AudioEchoCancellation;
-        audioConstraints.autoGainControl = this.currentSettings.AudioAutoGainControl;
+        audioConstraints.noiseSuppression = this.currentSettings.AudioNoiseSuppression.Value;
+        audioConstraints.echoCancellation = this.currentSettings.AudioEchoCancellation.Value;
+        audioConstraints.autoGainControl = this.currentSettings.AudioAutoGainControl.Value;
 
         const videoWidthRange: ConstrainULongRange = {};
         videoWidthRange.ideal = 1280;
@@ -115,7 +159,7 @@ export class UserMedia implements IUserMedia {
 
         const constraints: MediaStreamConstraints = {};
         constraints.audio = audioConstraints;
-        if (this.currentSettings.VideoEnabled) {
+        if (this.currentSettings.VideoEnabled.Value) {
             constraints.video = videoConstraints;
         }
 
@@ -163,12 +207,20 @@ export class UserMedia implements IUserMedia {
         return peak;
     }
 
-    private SetGain(newGain: number) : void {
+    private SetGainParameters(newSettings: UserMediaSettings): void {
         // In Chrome and Firefox, if a user has multiple channels
         // the gain needs to be multiplied by each. For example,
         // with 2 channels, the overall volume maxes out at 50%.
         // I'm not sure whether this is a browser bug or expected.
-        this.gainNode.gain.value = this.inputAudioChannels * newGain;
+        this.gainNode.gain.value = this.inputAudioChannels * newSettings.AudioGain.Value;
+    }
+
+    private SetCompressionParameters(newSettings: UserMediaSettings): void {
+        this.compressorNode.threshold.value = newSettings.AudioCompressorThreshold.Value;
+        this.compressorNode.knee.value = newSettings.AudioCompressorKnee.Value;
+        this.compressorNode.ratio.value = newSettings.AudioCompressorRatio.Value;
+        this.compressorNode.attack.value = newSettings.AudioCompressorAttack.Value;
+        this.compressorNode.release.value = newSettings.AudioCompressorRelease.Value;
     }
 
     private ProcessAudioTrackToMono(stream: MediaStream): MediaStream {
@@ -176,18 +228,26 @@ export class UserMedia implements IUserMedia {
         this.inputAudioChannels = source.channelCount;
 
         const destination: MediaStreamAudioDestinationNode = this.audioContext.createMediaStreamDestination();
-        destination.channelCount = this.currentSettings.AudioStereo ? 2 : 1;
+        destination.channelCount = this.currentSettings.AudioStereo.Value ? 2 : 1;
 
         this.gainNode = this.audioContext.createGain();
-        this.SetGain(this.currentSettings.AudioGain);
+        this.compressorNode = this.audioContext.createDynamicsCompressor();
+
+        this.SetGainParameters(this.currentSettings);
+        this.SetCompressionParameters(this.currentSettings);
 
         source.connect(this.gainNode);
 
+        let lastNode: AudioNode = this.gainNode;
+        if (this.currentSettings.AudioCompressor.Value) {
+            lastNode.connect(this.compressorNode);
+            lastNode = this.compressorNode;
+        }
+
         this.analyserNode = this.audioContext.createAnalyser();
 
-        this.gainNode.connect(this.analyserNode);
-
-        this.gainNode.connect(destination);
+        lastNode.connect(this.analyserNode);
+        lastNode.connect(destination);
 
         return destination.stream;
     }
