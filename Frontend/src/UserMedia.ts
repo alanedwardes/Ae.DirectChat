@@ -34,6 +34,7 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
 export class UserMediaSettings {
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera");
 
+    public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null);
     public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(0, 50, 0.5, 1, "Local Gain", "The amount of amplification to add to your microphone");
     public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it");
     public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves");
@@ -208,6 +209,11 @@ export class UserMedia implements IUserMedia {
     }
 
     private SetGainParameters(newSettings: UserMediaSettings): void {
+        if (!newSettings.AudioEnabled.Value) {
+            this.gainNode.gain.value = 0;
+            return;
+        }
+
         // In Chrome and Firefox, if a user has multiple channels
         // the gain needs to be multiplied by each. For example,
         // with 2 channels, the overall volume maxes out at 50%.
