@@ -19,6 +19,25 @@ function initialise() {
         }
     }
 
+    ChatApp.ChatApp.OnMessage = (messageText, messageType) => {
+        let list = document.querySelector(".messages");
+
+        let container = document.createElement("div");
+        container.className = messageType + "Message message";
+
+        let closeButton = document.createElement("button");
+        closeButton.className = "closeButton";
+        closeButton.innerHTML = "✕";
+        closeButton.onclick = () => list.removeChild(container);
+        container.appendChild(closeButton);
+
+        let message = document.createElement("span");
+        message.innerHTML = messageText;
+        container.appendChild(message);
+
+        list.appendChild(container);
+    };
+
     let joinSound = document.createElement("audio");
     joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
     ChatApp.ChatApp.OnConnect = connectionId => {

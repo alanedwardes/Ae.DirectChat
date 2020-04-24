@@ -16,7 +16,11 @@ interface OnLocalStreamDelegate {
 }
 
 interface OnRemoteStreamDelegate {
-    (clientId: string, mediaStream: MediaStream) : void;
+    (clientId: string, mediaStream: MediaStream): void;
+}
+
+interface OnMessage {
+    (message: string, type: string): void;
 }
 
 export class ChatApp {
@@ -37,6 +41,7 @@ export class ChatApp {
     public static OnDisconnect: OnDisconnectDelegate;
     public static OnLocalStream: OnLocalStreamDelegate;
     public static OnRemoteStream: OnRemoteStreamDelegate;
+    public static OnMessage: OnMessage;
 
     public static GetAttendeeId(): string { return ChatApp.fromId; }
 
@@ -50,7 +55,13 @@ export class ChatApp {
             }
         };
 
-        await ChatApp.userMedia.GetMediaStream();
+        try {
+            await ChatApp.userMedia.GetMediaStream();
+        }
+        catch {
+            ChatApp.OnMessage("Access to your microphone and camera was denied. Please change the permissions, then refresh the page.", "fatal")
+            return;
+        }
 
         const broker: IBroker = new Broker(roomId, this.fromId, this.sessionId);
 

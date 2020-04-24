@@ -48,12 +48,37 @@ form input[type=checkbox] {
     margin-right:5px;
 }
 
+.messages {
+    width:20vw;
+    margin-top:25px;
+    margin-right:25px;
+    float:right;
+}
+
+.messages .message.fatalMessage {
+    background:firebrick;
+}
+
+.messages .message {
+    background:#444;
+    box-shadow: rgba(0, 0, 0, 0.25) 0 0 25px;
+    border-radius:5px;
+    padding:15px 20px;
+    margin-bottom:20px;
+    color:white;
+}
+
+.messages .message .closeButton {
+    margin-left:10px;
+}
+
 .window {
     min-width: 256px;
     float: left;
 }
 
 .closeButton {
+    font-weight:bold;
     background: transparent;
     box-shadow: none;
     padding: 0;
