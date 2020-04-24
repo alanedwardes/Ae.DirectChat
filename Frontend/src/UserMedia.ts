@@ -5,21 +5,25 @@ export interface IUserMedia {
 }
 
 export class UserMediaSetting<T> {
-    constructor(value: T, name: string, description: string) {
+    constructor(value: T, name: string, description: string, category: string, hidden: boolean) {
         this.Name = name;
         this.Description = description;
+        this.Category = category;
+        this.Hidden = hidden;
         this.Value = value;
     }
 
     public readonly Name : string;
     public readonly Description : string;
+    public readonly Category: string;
+    public readonly Hidden: boolean;
     public Feature: string = null;
     public Value: T;
 }
 
 export class UserMediaSettingsRange extends UserMediaSetting<number> {
-    constructor(min: number, max: number, step: number, value: number, name: string, description: string) {
-        super(value, name, description);
+    constructor(min: number, max: number, step: number, value: number, name: string, description: string, category: string, hidden: boolean) {
+        super(value, name, description, category, hidden);
         this.Min = min;
         this.Max = max;
         this.Step = step;
@@ -32,27 +36,27 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
 }
 
 export class UserMediaSettings {
-    public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera");
+    public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Video", false);
 
-    public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null);
-    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(0, 50, 0.5, 1, "Local Gain", "The amount of amplification to add to your microphone");
-    public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it");
-    public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves");
-    public AudioAutoGainControl: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Auto Gain", "Enable automatic volume control");
-    public AudioNoiseSuppression: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Noise Suppression", "Try to filter out background sounds");
-    public AudioStereo: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Stereo (Firefox attendees only)", null);
+    public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
+    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
+    public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it", "Advanced Audio", false);
+    public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves", "Advanced Audio", false);
+    public AudioAutoGainControl: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Auto Gain", "Enable automatic volume control", "Advanced Audio", false);
+    public AudioNoiseSuppression: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Noise Suppression", "Try to filter out background sounds", "Advanced Audio", false);
+    public AudioStereo: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Stereo (Firefox attendees only)", null, "Advanced Audio", false);
 
-    public AudioCompressor: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Audio Compressor", null);;
+    public AudioCompressor: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Dynamics Compressor", "Lowers the volume of the loudest parts of the signal in order to help prevent clipping and distortion", "Advanced Audio", false);
     // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/threshold
-    public AudioCompressorThreshold: UserMediaSettingsRange = new UserMediaSettingsRange(-100, 0, 1, -24, "Compressor Threshold", "The decibel value above which the compression will start taking effect");
+    public AudioCompressorThreshold: UserMediaSettingsRange = new UserMediaSettingsRange(-100, 0, 1, -24, "Compressor Threshold", "The decibel value above which the compression will start taking effect", "Advanced Audio", true);
     // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/knee
-    public AudioCompressorKnee: UserMediaSettingsRange = new UserMediaSettingsRange(0, 40, 1, 30, "Compressor Knee", "The decibel value representing the range above the threshold where the curve smoothly transitions to the compressed portion");
+    public AudioCompressorKnee: UserMediaSettingsRange = new UserMediaSettingsRange(0, 40, 1, 30, "Compressor Knee", "The decibel value representing the range above the threshold where the curve smoothly transitions to the compressed portion", "Advanced Audio", true);
     // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/ratio
-    public AudioCompressorRatio: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 1, 12, "Compressor Ratio", "The amount of change, in dB, needed in the input for a 1 dB change in the output");
+    public AudioCompressorRatio: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 1, 12, "Compressor Ratio", "The amount of change, in dB, needed in the input for a 1 dB change in the output", "Advanced Audio", true);
     // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/attack
-    public AudioCompressorAttack: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.001, 0.003, "Compressor Attack", "The amount of time, in seconds, required to reduce the gain by 10 dB");
+    public AudioCompressorAttack: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.001, 0.003, "Compressor Attack", "The amount of time, in seconds, required to reduce the gain by 10 dB", "Advanced Audio", true);
     // https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode/release
-    public AudioCompressorRelease: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.25, 0.25, "Compressor Release", "The amount of time, in seconds, required to increase the gain by 10 dB");
+    public AudioCompressorRelease: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.001, 0.25, "Compressor Release", "The amount of time, in seconds, required to increase the gain by 10 dB", "Advanced Audio", true);
 }
 
 interface OnMediaStreamAvailable {

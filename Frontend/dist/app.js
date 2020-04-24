@@ -86,15 +86,28 @@ function initialise() {
 
     ChatApp.ChatApp.Start(roomId);
 
+    let lastCategory;
     let settings = ChatApp.ChatApp.GetMediaSettings();
     for (var key in settings) {
         if (settings.hasOwnProperty(key)) {
+            if (settings[key].Hidden) {
+                continue;
+            }
+
+            let parentElement;
             if (key.startsWith("Audio")) {
-                createSetting(key, settings[key], document.querySelector('#audioParameters'));
+                parentElement = document.querySelector('#audioParameters');
             }
             if (key.startsWith("Video")) {
-                createSetting(key, settings[key], document.querySelector('#videoParameters'));
+                parentElement = document.querySelector('#videoParameters');
             }
+
+            if (lastCategory != settings[key].Category) {
+                createCategoryTitle(settings[key].Category, parentElement);
+            }
+
+            lastCategory = settings[key].Category;
+            createSetting(key, settings[key], parentElement);
         }
     }
 
@@ -140,6 +153,12 @@ function flowRemoteVideo() {
         }
     }
     while (videos.length > 0);
+}
+
+function createCategoryTitle(category, parent) {
+    let title = document.createElement('h2');
+    title.innerHTML = category;
+    parent.appendChild(title);
 }
 
 function createSetting(settingKey, settingValue, parent) {
