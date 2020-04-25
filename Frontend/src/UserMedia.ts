@@ -36,7 +36,7 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
 }
 
 export class UserMediaSettings {
-    public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Video", false);
+    public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Basic Video", false);
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
     public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
@@ -124,7 +124,8 @@ export class UserMedia implements IUserMedia {
 
         this.currentSettings = newSettings;
 
-        if (shouldRefreshMediaAccess) {
+        // If we should refresh media access, and there is currently a stream to refresh
+        if (shouldRefreshMediaAccess && this.currentStream != null) {
             await this.GetMediaStream();
         }
 
@@ -213,6 +214,10 @@ export class UserMedia implements IUserMedia {
     }
 
     private SetGainParameters(newSettings: UserMediaSettings): void {
+        if (this.gainNode == null) {
+            return;
+        }
+
         if (!newSettings.AudioEnabled.Value) {
             this.gainNode.gain.value = 0;
             return;
@@ -226,6 +231,10 @@ export class UserMedia implements IUserMedia {
     }
 
     private SetCompressionParameters(newSettings: UserMediaSettings): void {
+        if (this.compressorNode == null) {
+            return;
+        }
+
         this.compressorNode.threshold.value = newSettings.AudioCompressorThreshold.Value;
         this.compressorNode.knee.value = newSettings.AudioCompressorKnee.Value;
         this.compressorNode.ratio.value = newSettings.AudioCompressorRatio.Value;

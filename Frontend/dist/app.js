@@ -19,24 +19,35 @@ function initialise() {
         }
     }
 
-    ChatApp.ChatApp.OnMessage = (messageText, messageType) => {
-        let list = document.querySelector(".messages");
+    ChatApp.ChatApp.OnMessage = (messageText, messageType) => logMessage(messageText, messageType);
 
-        let container = document.createElement("div");
-        container.className = messageType + "Message message";
+    if (window.location.search.startsWith('?')) {
+        let settings = ChatApp.ChatApp.GetMediaSettings();
 
-        let closeButton = document.createElement("button");
-        closeButton.className = "closeButton";
-        closeButton.innerHTML = "✕";
-        closeButton.onclick = () => list.removeChild(container);
-        container.appendChild(closeButton);
+        let search = window.location.search.substring(1).split('&');
+        for (var i = 0; i < search.length; i++) {
+            let parts = search[i].split('=').filter(decodeURIComponent);
+            let settingName = parts[0];
+            let settingValue = parts[1];
 
-        let message = document.createElement("span");
-        message.innerHTML = messageText;
-        container.appendChild(message);
+            if (!settings.hasOwnProperty(settingName)) {
+                continue;
+            }
 
-        list.appendChild(container);
-    };
+            let settingTypedValue;
+            try {
+                settingTypedValue = parseStringToType(settingValue, typeof(settings[settingName].Value))
+            }
+            catch {
+                logMessage("Unable to parse value for setting " + settingName + ". Please ensure it is of the right type and try again.", "fatal");
+                return;
+            }
+
+            settings[settingName].Value = settingTypedValue;
+        }
+
+        ChatApp.ChatApp.SetMediaSettings(settings);
+    }
 
     let joinSound = document.createElement("audio");
     joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
@@ -50,6 +61,7 @@ function initialise() {
         }
         else {
             li.innerHTML = connectionId;
+            logMessage("Someone connected!", "info");
         }
         document.querySelector("#attendeeList").appendChild(li)
     };
@@ -61,6 +73,7 @@ function initialise() {
     ChatApp.ChatApp.OnDisconnect = connectionId => {
         leaveSound.play();
 
+        logMessage("Someone disconnected!", "info");
         document.querySelector('#remoteVideo').removeChild(remoteVideo[connectionId]);
         delete remoteVideo[connectionId];
 
@@ -150,6 +163,35 @@ function initialise() {
     });
 }
 
+function logMessage(messageText, messageType) {
+    let timeoutHandle;
+    if (messageType != "fatal") {
+        timeoutHandle = setTimeout(() => {
+            list.removeChild(container);
+        }, 10000);
+    }
+
+    let list = document.querySelector(".messages");
+
+    let container = document.createElement("div");
+    container.className = messageType + "Message message";
+
+    let closeButton = document.createElement("button");
+    closeButton.className = "closeButton";
+    closeButton.innerHTML = "✕";
+    closeButton.onclick = () => {
+        clearTimeout(timeoutHandle);
+        list.removeChild(container);
+    }
+    container.appendChild(closeButton);
+
+    let message = document.createElement("span");
+    message.innerHTML = messageText;
+    container.appendChild(message);
+
+    list.appendChild(container);
+}
+
 function flowRemoteVideo() {
     let videos = Array.prototype.slice.call(document.querySelectorAll('.remoteVideo'));
     let videoCount = videos.length;
@@ -159,7 +201,7 @@ function flowRemoteVideo() {
     let currentColumn = 0;
     let currentRow = 0;
 
-    do {
+    while (videos.length > 0) {
         let video = videos.pop();
 
         video.style['grid-area'] = (currentRow + 1) + " / " + (currentColumn + 1) + " / span 1 / span 1";
@@ -171,7 +213,6 @@ function flowRemoteVideo() {
             currentRow++;
         }
     }
-    while (videos.length > 0);
 }
 
 function createCategoryTitle(category, parent) {
@@ -265,4 +306,25 @@ function drawAudioMeter() {
     context.fillRect(0, 0, canvas.width * sample, 64);
 
     window.requestAnimationFrame(() => drawAudioMeter());
+}
+
+function parseStringToType(input, type) {
+    if (type === "boolean") {
+        if (input.toLowerCase() === "true") {
+            return true;
+        }
+
+        if (input.toLowerCase() === "false") {
+            return false;
+        }
+    }
+
+    if (type === "number") {
+        let value = parseFloat(input);
+        if (!isNaN(value)) {
+            return value;
+        }
+    }
+
+    throw "Error parsing " + input + " to " + type;
 }

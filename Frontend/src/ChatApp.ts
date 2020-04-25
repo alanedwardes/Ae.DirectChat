@@ -59,7 +59,7 @@ export class ChatApp {
             await ChatApp.userMedia.GetMediaStream();
         }
         catch {
-            ChatApp.OnMessage("Access to your microphone and camera was denied. Please change the permissions, then refresh the page.", "fatal")
+            ChatApp.OnMessage("Access to your microphone and camera was denied. Please change the permissions, then refresh the page.", "fatal");
             return;
         }
 
@@ -78,5 +78,6 @@ export class ChatApp {
         await broker.Open();
 
         ChatApp.OnConnect(ChatApp.fromId);
+        ChatApp.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
     }
 }
