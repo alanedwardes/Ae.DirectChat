@@ -272,9 +272,12 @@ function createSetting(settingKey, settingValue, parent) {
         input.max = settingValue.Max;
         input.value = settingValue.Value;
         input.oninput = (event) => {
+            valueLabel.innerHTML = event.srcElement.value;
+        };
+
+        input.onchange = (event) => {
             let settings = ChatApp.ChatApp.GetMediaSettings();
             settings[settingKey].Value = event.srcElement.value;
-            valueLabel.innerHTML = event.srcElement.value;
             ChatApp.ChatApp.SetMediaSettings(settings);
         };
 

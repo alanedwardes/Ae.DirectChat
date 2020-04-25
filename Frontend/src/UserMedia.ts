@@ -37,6 +37,8 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
 
 export class UserMediaSettings {
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Basic Video", false);
+    public VideoWidth: UserMediaSettingsRange = new UserMediaSettingsRange(640, 1920, 20,  1280, "Video Width", null, "Advanced Video", false);
+    public VideoHeight: UserMediaSettingsRange = new UserMediaSettingsRange(480, 1080, 20, 720, "Video Height", null, "Advanced Video", false);
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
     public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
@@ -84,36 +86,46 @@ export class UserMedia implements IUserMedia {
         let shouldRefreshMediaAccess: boolean;
         let shouldRefreshLocalListen: boolean;
 
-        if (this.currentSettings.AudioAutoGainControl.Value != newSettings.AudioAutoGainControl.Value) {
+        if (this.currentSettings.AudioAutoGainControl.Value !== newSettings.AudioAutoGainControl.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioEchoCancellation.Value != newSettings.AudioEchoCancellation.Value) {
+        if (this.currentSettings.AudioEchoCancellation.Value !== newSettings.AudioEchoCancellation.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioNoiseSuppression.Value != newSettings.AudioNoiseSuppression.Value) {
+        if (this.currentSettings.AudioNoiseSuppression.Value !== newSettings.AudioNoiseSuppression.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.VideoEnabled.Value != newSettings.VideoEnabled.Value) {
+        if (this.currentSettings.VideoEnabled.Value !== newSettings.VideoEnabled.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioLocalListen.Value != newSettings.AudioLocalListen.Value) {
+        if (this.currentSettings.VideoWidth.Value !== newSettings.VideoWidth.Value) {
+            shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.AudioStereo.Value != newSettings.AudioStereo.Value) {
+        if (this.currentSettings.VideoHeight.Value !== newSettings.VideoHeight.Value) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioLocalListen.Value !== newSettings.AudioLocalListen.Value) {
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioStereo.Value !== newSettings.AudioStereo.Value) {
             shouldRefreshLocalListen = true;
             shouldRefreshMediaAccess = true;
         }
 
-        if (this.currentSettings.AudioCompressor.Value != newSettings.AudioCompressor.Value) {
+        if (this.currentSettings.AudioCompressor.Value !== newSettings.AudioCompressor.Value) {
             shouldRefreshLocalListen = true;
             shouldRefreshMediaAccess = true;
         }
@@ -155,9 +167,9 @@ export class UserMedia implements IUserMedia {
         audioConstraints.autoGainControl = this.currentSettings.AudioAutoGainControl.Value;
 
         const videoWidthRange: ConstrainULongRange = {};
-        videoWidthRange.ideal = 1280;
+        videoWidthRange.ideal = this.currentSettings.VideoWidth.Value;
         const videoHeightRange: ConstrainULongRange = {};
-        videoHeightRange.ideal = 720;
+        videoHeightRange.ideal = this.currentSettings.VideoHeight.Value;
 
         const videoConstraints: MediaTrackConstraints = {};
         videoConstraints.width = videoWidthRange;
