@@ -38,7 +38,7 @@ function initialise() {
             try {
                 settingTypedValue = parseStringToType(settingValue, typeof(settings[settingName].Value))
             }
-            catch {
+            catch (err) {
                 logMessage("Unable to parse value for setting " + settingName + ". Please ensure it is of the right type and try again.", "fatal");
                 return;
             }
