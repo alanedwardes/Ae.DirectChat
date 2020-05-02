@@ -48,7 +48,7 @@ function initialise() {
 
             let settingTypedValue;
             try {
-                settingTypedValue = parseStringToType(settingValue, typeof(settings[settingName].Value))
+                settingTypedValue = parseStringToType(settingValue, typeof (settings[settingName].Value))
             }
             catch (err) {
                 logMessage("Unable to parse value for setting " + settingName + ". Please ensure it is of the right type and try again.", "fatal");
@@ -219,8 +219,7 @@ function flowRemoteVideo() {
         video.style['grid-area'] = (currentRow + 1) + " / " + (currentColumn + 1) + " / span 1 / span 1";
 
         currentColumn++;
-        if (currentColumn > columnCount - 1)
-        {
+        if (currentColumn > columnCount - 1) {
             currentColumn = 0;
             currentRow++;
         }
@@ -295,6 +294,35 @@ function createSetting(settingKey, settingValue, parent) {
 
         paragraph.appendChild(valueLabel);
     }
+    else if (settingValue.Feature == "select") {
+        let label = document.createElement("label");
+        label.innerHTML = settingValue.Name;
+        if (settingValue.Description != null) {
+            label.classList.add("helptext");
+        }
+        paragraph.append(label);
+
+        let select = document.createElement("select");
+        paragraph.appendChild(select);
+
+        for (let i = 0; i < settingValue.Options.length; i++) {
+            let option = document.createElement("option");
+            option.value = settingValue.Options[i];
+            option.innerHTML = option.value;
+            select.appendChild(option);
+        }
+
+        select.selectedIndex = settingValue.Options.indexOf(settingValue.Value);
+
+        select.id = "setting" + select.type + settingKey;
+        select.oninput = (event) => {
+            let settings = ChatApp.ChatApp.GetMediaSettings();
+            settings[settingKey].Value = settings[settingKey].Options[event.srcElement.selectedIndex];
+            ChatApp.ChatApp.SetMediaSettings(settings);
+        };
+
+        label.setAttribute("for", select.id);
+    }
 }
 
 function drawAudioMeter() {
@@ -318,7 +346,7 @@ function drawAudioMeter() {
     if (sample >= .99) {
         context.fillStyle = "red";
     }
-    
+
     context.fillRect(0, 0, canvas.width * sample, 64);
 
     window.requestAnimationFrame(() => drawAudioMeter());
