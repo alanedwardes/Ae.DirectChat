@@ -51,6 +51,7 @@ export class UserMediaSettings {
     public VideoFrameRate: UserMediaSettingsRange = new UserMediaSettingsRange(15, 60, 5, 20, "Frame Rate", "Sets the ideal frame rate for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
+    public AudioLocalMeter: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Audio Meter", null, "Basic Audio", false);
     public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
     public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it", "Advanced Audio", false);
     public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves", "Advanced Audio", false);
@@ -107,6 +108,11 @@ export class UserMedia implements IUserMedia {
         }
 
         if (this.currentSettings.AudioNoiseSuppression.Value !== newSettings.AudioNoiseSuppression.Value) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
+        if (this.currentSettings.AudioLocalMeter.Value !== newSettings.AudioLocalMeter.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
@@ -283,22 +289,30 @@ export class UserMedia implements IUserMedia {
         destination.channelCount = this.currentSettings.AudioStereo.Value ? 2 : 1;
 
         this.gainNode = this.audioContext.createGain();
-        this.compressorNode = this.audioContext.createDynamicsCompressor();
-
         this.SetGainParameters(this.currentSettings);
-        this.SetCompressionParameters(this.currentSettings);
 
         source.connect(this.gainNode);
 
         let lastNode: AudioNode = this.gainNode;
+
         if (this.currentSettings.AudioCompressor.Value) {
+            this.compressorNode = this.audioContext.createDynamicsCompressor();
+            this.SetCompressionParameters(this.currentSettings);
             lastNode.connect(this.compressorNode);
             lastNode = this.compressorNode;
         }
+        else {
+            this.compressorNode = null;
+        }
 
-        this.analyserNode = this.audioContext.createAnalyser();
+        if (this.currentSettings.AudioLocalMeter.Value) {
+            this.analyserNode = this.audioContext.createAnalyser();
+            lastNode.connect(this.analyserNode);
+        }
+        else {
+            this.analyserNode = null;
+        }
 
-        lastNode.connect(this.analyserNode);
         lastNode.connect(destination);
 
         return destination.stream;

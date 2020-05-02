@@ -58,7 +58,7 @@ function initialise() {
             settings[settingName].Value = settingTypedValue;
         }
 
-        ChatApp.ChatApp.SetMediaSettings(settings);
+        applyNewSettings(settings);
     }
 
     let joinSound = document.createElement("audio");
@@ -232,6 +232,13 @@ function createCategoryTitle(category, parent) {
     parent.appendChild(title);
 }
 
+function applyNewSettings(newSettings) {
+    ChatApp.ChatApp.SetMediaSettings(newSettings);
+
+    shouldDrawMeter = newSettings.AudioLocalMeter.Value;
+    drawAudioMeter();
+}
+
 function createSetting(settingKey, settingValue, parent) {
     let paragraph = document.createElement("p");
     parent.appendChild(paragraph);
@@ -249,7 +256,7 @@ function createSetting(settingKey, settingValue, parent) {
         input.oninput = (event) => {
             let settings = ChatApp.ChatApp.GetMediaSettings();
             settings[settingKey].Value = event.srcElement.checked;
-            ChatApp.ChatApp.SetMediaSettings(settings);
+            applyNewSettings(settings);
         };
 
         let label = document.createElement("label");
@@ -289,7 +296,7 @@ function createSetting(settingKey, settingValue, parent) {
         input.onchange = (event) => {
             let settings = ChatApp.ChatApp.GetMediaSettings();
             settings[settingKey].Value = event.srcElement.value;
-            ChatApp.ChatApp.SetMediaSettings(settings);
+            applyNewSettings(settings);
         };
 
         paragraph.appendChild(valueLabel);
@@ -318,16 +325,23 @@ function createSetting(settingKey, settingValue, parent) {
         select.oninput = (event) => {
             let settings = ChatApp.ChatApp.GetMediaSettings();
             settings[settingKey].Value = settings[settingKey].Options[event.srcElement.selectedIndex];
-            ChatApp.ChatApp.SetMediaSettings(settings);
+            applyNewSettings(settings);
         };
 
         label.setAttribute("for", select.id);
     }
 }
 
+let shouldDrawMeter = false;
 function drawAudioMeter() {
     let canvas = document.getElementById("volumeCanvas");
     let context = canvas.getContext("2d");
+
+    if (!shouldDrawMeter) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
+
     let sample = ChatApp.ChatApp.GetAudioLevel();
 
     if (canvas.width != document.body.clientWidth) {
@@ -351,7 +365,6 @@ function drawAudioMeter() {
 
     window.requestAnimationFrame(() => drawAudioMeter());
 }
-drawAudioMeter();
 
 function parseStringToType(input, type) {
     if (type === "boolean") {

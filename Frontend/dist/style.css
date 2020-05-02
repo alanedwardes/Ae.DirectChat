@@ -120,8 +120,8 @@ form input[type=checkbox] {
 
 #volumeCanvas {
     position:absolute;
+    z-index:-1;
     top:0;
-    background: #333;
 }
 
 #localVideo {
@@ -152,5 +152,4 @@ form input[type=checkbox] {
 #attendeeList li {
     border-bottom-width: 2px;
     border-bottom-style: solid;
-    text-shadow: 0px 0px 5px black;
 }
