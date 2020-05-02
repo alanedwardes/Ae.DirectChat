@@ -47,7 +47,8 @@ export class UserSettingsSelection<T> extends UserMediaSetting<T> {
 
 export class UserMediaSettings {
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Basic Video", false);
-    public VideoResolution: UserSettingsSelection<string> = new UserSettingsSelection<string>("720p", ["480p", "720p", "1080p"], "Video Resolution", "Sets the ideal resolution for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
+    public VideoResolution: UserSettingsSelection<string> = new UserSettingsSelection<string>("720p", ["480p", "720p", "1080p"], "Resolution", "Sets the ideal resolution for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
+    public VideoFrameRate: UserMediaSettingsRange = new UserMediaSettingsRange(15, 60, 5, 20, "Frame Rate", "Sets the ideal frame rate for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
     public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
@@ -120,6 +121,11 @@ export class UserMedia implements IUserMedia {
             shouldRefreshLocalListen = true;
         }
 
+        if (this.currentSettings.VideoFrameRate.Value !== newSettings.VideoFrameRate.Value) {
+            shouldRefreshMediaAccess = true;
+            shouldRefreshLocalListen = true;
+        }
+
         if (this.currentSettings.AudioLocalListen.Value !== newSettings.AudioLocalListen.Value) {
             shouldRefreshLocalListen = true;
         }
@@ -182,9 +188,13 @@ export class UserMedia implements IUserMedia {
         const videoHeightRange: ConstrainULongRange = {};
         videoHeightRange.ideal = videoResolutions[this.currentSettings.VideoResolution.Value][1];
 
+        const videoFrameRate: ConstrainDouble = {};
+        videoFrameRate.ideal = this.currentSettings.VideoFrameRate.Value;
+
         const videoConstraints: MediaTrackConstraints = {};
         videoConstraints.width = videoWidthRange;
         videoConstraints.height = videoHeightRange;
+        videoConstraints.frameRate = videoFrameRate;
 
         const constraints: MediaStreamConstraints = {};
         constraints.audio = audioConstraints;
