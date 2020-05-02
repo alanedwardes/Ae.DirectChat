@@ -99,6 +99,15 @@ form input[type=checkbox] {
     display: none;
 }
 
+.controls.faded {
+    opacity:0;
+}
+
+.controls {
+    opacity:1;
+    transition: opacity 1s;
+}
+
 .helptext {
     border-bottom:1px dashed #999;
     cursor:help;

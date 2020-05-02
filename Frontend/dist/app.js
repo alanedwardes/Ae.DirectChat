@@ -19,6 +19,18 @@ function initialise() {
         }
     }
 
+    function hideControls() {
+        document.querySelector(".controls").classList.add('faded');
+    }
+
+    let timeout = setTimeout(hideControls, 10000);
+
+    window.onmousemove = () => {
+        clearTimeout(timeout);
+        setTimeout(hideControls, 10000);
+        document.querySelector(".controls").classList.remove('faded');
+    };
+
     ChatApp.ChatApp.OnMessage = (messageText, messageType) => logMessage(messageText, messageType);
 
     if (window.location.search.startsWith('?')) {
