@@ -27,7 +27,7 @@ function initialise() {
 
     window.onmousemove = () => {
         clearTimeout(timeout);
-        setTimeout(hideControls, 10000);
+        timeout = setTimeout(hideControls, 10000);
         document.querySelector(".controls").classList.remove('faded');
     };
 
@@ -158,7 +158,6 @@ function initialise() {
 
     document.querySelector('#audioControlsButton').addEventListener('click', event => {
         document.querySelector('#audioControls').classList.remove("hidden");
-        drawAudioMeter();
     });
 
     document.querySelector('#videoControlsButton').addEventListener('click', event => {
@@ -299,30 +298,33 @@ function createSetting(settingKey, settingValue, parent) {
 }
 
 function drawAudioMeter() {
-    if (document.querySelector('#audioControls').classList.contains("hidden")) {
-        return;
-    }
-
     let canvas = document.getElementById("volumeCanvas");
     let context = canvas.getContext("2d");
     let sample = ChatApp.ChatApp.GetAudioLevel();
 
-    context.clearRect(0, 0, canvas.width, canvas.height)
+    if (canvas.width != document.body.clientWidth) {
+        canvas.width = document.body.clientWidth;
+        canvas.height = 5;
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
 
     context.fillStyle = "green";
 
-    if (sample > .80) {
+    if (sample >= .85) {
         context.fillStyle = "orange";
     }
 
-    if (sample > .95) {
+    if (sample >= .99) {
         context.fillStyle = "red";
     }
 
+    console.log(context.fillStyle);
     context.fillRect(0, 0, canvas.width * sample, 64);
 
     window.requestAnimationFrame(() => drawAudioMeter());
 }
+drawAudioMeter();
 
 function parseStringToType(input, type) {
     if (type === "boolean") {

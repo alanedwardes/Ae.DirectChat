@@ -114,6 +114,8 @@ form input[type=checkbox] {
 }
 
 #volumeCanvas {
+    position:absolute;
+    top:0;
     background: #333;
 }
 
