@@ -28,7 +28,7 @@ interface OnAcceptedOfferDelegate {
 }
 
 interface OnConnectionChangedDelegate {
-    (newState: RTCPeerConnectionState): void;
+    (newState: string): void;
 }
 
 export class PeerConnector implements IPeerConnector {
@@ -49,6 +49,11 @@ export class PeerConnector implements IPeerConnector {
         this.connector.onconnectionstatechange = () => {
             this.OnConnectionChanged(this.connector.connectionState);
         }
+
+        this.connector.oniceconnectionstatechange = () => {
+            this.OnConnectionChanged(this.connector.iceConnectionState);
+        }
+
 
         this.connector.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
             if (event.candidate == null) {

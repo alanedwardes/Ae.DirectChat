@@ -31,8 +31,6 @@ export class ChatApp {
     public static GetMediaSettings(): UserMediaSettings { return ChatApp.userMedia.GetSettings(); }
     public static async SetMediaSettings(newSettings: UserMediaSettings): Promise<void> { await ChatApp.userMedia.SetSettings(newSettings); }
 
-    private static sessionId: string = uuidv4();
-    private static fromId: string = uuidv4();
     private static userMedia: UserMedia = new UserMedia();
     private static localStream: MediaStream;
     private static connectionManager: ConnectionManager;
@@ -43,7 +41,11 @@ export class ChatApp {
     public static OnRemoteStream: OnRemoteStreamDelegate;
     public static OnMessage: OnMessage;
 
-    public static GetAttendeeId(): string { return ChatApp.fromId; }
+    private static sessionId: string = uuidv4();
+    private static GetSessionId(): string { return ChatApp.sessionId; }
+
+    private static attendeeId: string = uuidv4();
+    public static GetAttendeeId(): string { return ChatApp.attendeeId; }
 
     public static async Start(roomId: string): Promise<void> {
         ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
@@ -63,7 +65,7 @@ export class ChatApp {
             return;
         }
 
-        const broker: IBroker = new Broker(roomId, this.fromId, this.sessionId);
+        const broker: IBroker = new Broker(roomId, ChatApp.GetAttendeeId(), ChatApp.GetSessionId());
 
         this.connectionManager = new ConnectionManager(broker);
         this.connectionManager.OnClientConnect = (clientId) => ChatApp.OnConnect(clientId);
@@ -77,7 +79,7 @@ export class ChatApp {
 
         await broker.Open();
 
-        ChatApp.OnConnect(ChatApp.fromId);
+        ChatApp.OnConnect(ChatApp.GetAttendeeId());
         ChatApp.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
     }
 }

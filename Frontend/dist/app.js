@@ -55,6 +55,7 @@ function initialise() {
         joinSound.play();
 
         let li = document.createElement("li");
+        li.style.borderColor = '#' + connectionId.substring(0, 6);
 
         if (ChatApp.ChatApp.GetAttendeeId() == connectionId) {
             li.innerHTML = connectionId + " (you)";

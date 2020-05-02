@@ -41,6 +41,11 @@ export class ConnectionManager {
         }
     }
 
+    private DisconnectClient(connectionId: string): void {
+        delete this.connectors[connectionId];
+        this.OnClientDisconnect(connectionId);
+    }
+
     private CreateConnector(fromId: string): void {
         if (this.connectors.hasOwnProperty(fromId)) {
             return;
@@ -51,8 +56,7 @@ export class ConnectionManager {
 
         peerConnector.OnConnectionChanged = newState => {
             if (newState == "failed") {
-                delete this.connectors[fromId];
-                this.OnClientDisconnect(fromId);
+                this.DisconnectClient(fromId);
             }
         };
 
