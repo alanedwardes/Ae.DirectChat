@@ -13,8 +13,8 @@ export class UserMediaSetting<T> {
         this.Value = value;
     }
 
-    public readonly Name : string;
-    public readonly Description : string;
+    public readonly Name: string;
+    public readonly Description: string;
     public readonly Category: string;
     public readonly Hidden: boolean;
     public Feature: string = null;
@@ -35,10 +35,19 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
     public readonly Step: number;
 }
 
+export class UserSettingsSelection<T> extends UserMediaSetting<T> {
+    constructor(value: T, options: T[], name: string, description: string, category: string, hidden: boolean) {
+        super(value, name, description, category, hidden);
+        this.Options = options;
+        this.Feature = "select";
+    }
+
+    public readonly Options: T[] = [];
+}
+
 export class UserMediaSettings {
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Basic Video", false);
-    public VideoWidth: UserMediaSettingsRange = new UserMediaSettingsRange(640, 1920, 20,  1280, "Video Width", null, "Advanced Video", false);
-    public VideoHeight: UserMediaSettingsRange = new UserMediaSettingsRange(480, 1080, 20, 720, "Video Height", null, "Advanced Video", false);
+    public VideoResolution: UserSettingsSelection<string> = new UserSettingsSelection<string>("720p", ["480p", "720p", "1080p"], "Video Resolution", "Sets the ideal resolution for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
     public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
@@ -106,12 +115,7 @@ export class UserMedia implements IUserMedia {
             shouldRefreshLocalListen = true;
         }
 
-        if (this.currentSettings.VideoWidth.Value !== newSettings.VideoWidth.Value) {
-            shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
-        }
-
-        if (this.currentSettings.VideoHeight.Value !== newSettings.VideoHeight.Value) {
+        if (this.currentSettings.VideoResolution.Value !== newSettings.VideoResolution.Value) {
             shouldRefreshMediaAccess = true;
             shouldRefreshLocalListen = true;
         }
@@ -166,10 +170,17 @@ export class UserMedia implements IUserMedia {
         audioConstraints.echoCancellation = this.currentSettings.AudioEchoCancellation.Value;
         audioConstraints.autoGainControl = this.currentSettings.AudioAutoGainControl.Value;
 
+        const videoResolutions: { [fromId: string]: number[]; } = {
+            '480p': [854, 480],
+            '720p': [1280, 720],
+            '1080p': [1920, 1080]
+        };
+
         const videoWidthRange: ConstrainULongRange = {};
-        videoWidthRange.ideal = this.currentSettings.VideoWidth.Value;
+        videoWidthRange.ideal = videoResolutions[this.currentSettings.VideoResolution.Value][0];
+
         const videoHeightRange: ConstrainULongRange = {};
-        videoHeightRange.ideal = this.currentSettings.VideoHeight.Value;
+        videoHeightRange.ideal = videoResolutions[this.currentSettings.VideoResolution.Value][1];
 
         const videoConstraints: MediaTrackConstraints = {};
         videoConstraints.width = videoWidthRange;

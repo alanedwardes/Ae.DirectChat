@@ -49,6 +49,11 @@ form input[type=range] {
     width: 450px;
 }
 
+form select {
+    float:right;
+    padding:5px;
+}
+
 form input[type=checkbox] {
     margin-right:5px;
 }
