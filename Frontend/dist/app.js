@@ -318,8 +318,7 @@ function drawAudioMeter() {
     if (sample >= .99) {
         context.fillStyle = "red";
     }
-
-    console.log(context.fillStyle);
+    
     context.fillRect(0, 0, canvas.width * sample, 64);
 
     window.requestAnimationFrame(() => drawAudioMeter());
