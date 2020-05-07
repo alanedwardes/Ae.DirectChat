@@ -2,9 +2,26 @@ export interface IUserMedia {
     GetMediaStream(): Promise<MediaStream>;
     GetSettings(): UserMediaSettings;
     SetSettings(newSettings: UserMediaSettings): Promise<void>;
+    SampleInput(): number;
+    OnMediaStreamAvailable: OnMediaStreamAvailable;
 }
 
-export class UserMediaSetting<T> {
+export enum UserMediaSettingType {
+    Generic,
+    Range,
+    Select
+}
+
+export interface IUserMediaSetting {
+    readonly Name: string;
+    readonly Description: string;
+    readonly Category: string;
+    readonly Hidden: boolean;
+    readonly Type: UserMediaSettingType;
+    readonly Value: any;
+}
+
+export class UserMediaSetting<T> implements IUserMediaSetting {
     constructor(value: T, name: string, description: string, category: string, hidden: boolean) {
         this.Name = name;
         this.Description = description;
@@ -17,7 +34,7 @@ export class UserMediaSetting<T> {
     public readonly Description: string;
     public readonly Category: string;
     public readonly Hidden: boolean;
-    public Feature: string = null;
+    public Type: UserMediaSettingType = UserMediaSettingType.Generic;
     public Value: T;
 }
 
@@ -27,7 +44,7 @@ export class UserMediaSettingsRange extends UserMediaSetting<number> {
         this.Min = min;
         this.Max = max;
         this.Step = step;
-        this.Feature = "range";
+        this.Type = UserMediaSettingType.Range;
     }
 
     public readonly Min: number;
@@ -39,13 +56,36 @@ export class UserSettingsSelection<T> extends UserMediaSetting<T> {
     constructor(value: T, options: T[], name: string, description: string, category: string, hidden: boolean) {
         super(value, name, description, category, hidden);
         this.Options = options;
-        this.Feature = "select";
+        this.Type = UserMediaSettingType.Select;
     }
 
     public readonly Options: T[] = [];
 }
 
-export class UserMediaSettings {
+export interface IUserMediaSettings {
+    [key: string]: any;
+    VideoEnabled: UserMediaSetting<boolean>;
+    VideoResolution: UserSettingsSelection<string>;
+    VideoFrameRate: UserMediaSettingsRange;
+
+    AudioEnabled: UserMediaSetting<boolean>;
+    AudioLocalMeter: UserMediaSetting<boolean>;
+    AudioGain: UserMediaSettingsRange;
+    AudioLocalListen: UserMediaSetting<boolean>;
+    AudioEchoCancellation: UserMediaSetting<boolean>;
+    AudioAutoGainControl: UserMediaSetting<boolean>;
+    AudioNoiseSuppression: UserMediaSetting<boolean>;
+    AudioStereo: UserMediaSetting<boolean>;
+
+    AudioCompressor: UserMediaSetting<boolean>;
+    AudioCompressorThreshold: UserMediaSettingsRange;
+    AudioCompressorKnee: UserMediaSettingsRange;
+    AudioCompressorRatio: UserMediaSettingsRange;
+    AudioCompressorAttack: UserMediaSettingsRange;
+    AudioCompressorRelease: UserMediaSettingsRange;
+}
+
+class UserMediaSettings implements IUserMediaSettings {
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Basic Video", false);
     public VideoResolution: UserSettingsSelection<string> = new UserSettingsSelection<string>("720p", ["480p", "720p", "1080p"], "Resolution", "Sets the ideal resolution for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
     public VideoFrameRate: UserMediaSettingsRange = new UserMediaSettingsRange(15, 60, 5, 20, "Frame Rate", "Sets the ideal frame rate for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
@@ -85,15 +125,15 @@ export class UserMedia implements IUserMedia {
     private currentStream: MediaStream;
     private inputAudioChannels: number;
 
-    private currentSettings: UserMediaSettings = new UserMediaSettings();
+    private currentSettings: IUserMediaSettings = new UserMediaSettings();
 
     public OnMediaStreamAvailable: OnMediaStreamAvailable;
 
-    public GetSettings(): UserMediaSettings {
+    public GetSettings(): IUserMediaSettings {
         return JSON.parse(JSON.stringify(this.currentSettings));
     }
 
-    public async SetSettings(newSettings: UserMediaSettings): Promise<void> {
+    public async SetSettings(newSettings: IUserMediaSettings): Promise<void> {
         let shouldRefreshMediaAccess: boolean;
         let shouldRefreshLocalListen: boolean;
 

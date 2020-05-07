@@ -1,4 +1,4 @@
-import { UserMedia, UserMediaSettings } from "./UserMedia";
+import { IUserMedia } from "./UserMedia";
 import { v4 as uuidv4 } from 'uuid';
 import { Broker, IBroker } from "./Broker";
 import { ConnectionManager } from "./ConnectionManager";
@@ -24,62 +24,61 @@ interface OnMessage {
 }
 
 export class ChatApp {
-    public static NewGuid(): string { return uuidv4(); }
+    public NewGuid(): string { return uuidv4(); }
 
-    public static GetAudioLevel(): number { return ChatApp.userMedia.SampleInput(); }
+    constructor(userMedia: IUserMedia) {
+        this.userMedia = userMedia;
+    }
 
-    public static GetMediaSettings(): UserMediaSettings { return ChatApp.userMedia.GetSettings(); }
-    public static async SetMediaSettings(newSettings: UserMediaSettings): Promise<void> { await ChatApp.userMedia.SetSettings(newSettings); }
+    private readonly userMedia: IUserMedia;
+    private localStream: MediaStream;
+    private connectionManager: ConnectionManager;
 
-    private static userMedia: UserMedia = new UserMedia();
-    private static localStream: MediaStream;
-    private static connectionManager: ConnectionManager;
+    public OnConnect: OnConnectDelegate;
+    public OnDisconnect: OnDisconnectDelegate;
+    public OnLocalStream: OnLocalStreamDelegate;
+    public OnRemoteStream: OnRemoteStreamDelegate;
+    public OnMessage: OnMessage;
 
-    public static OnConnect: OnConnectDelegate;
-    public static OnDisconnect: OnDisconnectDelegate;
-    public static OnLocalStream: OnLocalStreamDelegate;
-    public static OnRemoteStream: OnRemoteStreamDelegate;
-    public static OnMessage: OnMessage;
+    private sessionId: string = uuidv4();
+    private GetSessionId(): string { return this.sessionId; }
 
-    private static sessionId: string = uuidv4();
-    private static GetSessionId(): string { return ChatApp.sessionId; }
+    private attendeeId: string = uuidv4();
+    public GetAttendeeId(): string { return this.attendeeId; }
 
-    private static attendeeId: string = uuidv4();
-    public static GetAttendeeId(): string { return ChatApp.attendeeId; }
+    public async Start(roomId: string): Promise<void> {
+        this.userMedia.OnMediaStreamAvailable = mediaStream => {
+            this.localStream = mediaStream;
+            this.OnLocalStream(mediaStream);
 
-    public static async Start(roomId: string): Promise<void> {
-        ChatApp.userMedia.OnMediaStreamAvailable = mediaStream => {
-            ChatApp.localStream = mediaStream;
-            ChatApp.OnLocalStream(mediaStream);
-
-            if (ChatApp.connectionManager != null) {
-                ChatApp.connectionManager.RefreshLocalStream();
+            if (this.connectionManager != null) {
+                this.connectionManager.RefreshLocalStream();
             }
         };
 
         try {
-            await ChatApp.userMedia.GetMediaStream();
+            await this.userMedia.GetMediaStream();
         }
         catch {
-            ChatApp.OnMessage("Access to your microphone and camera was denied. Please change the permissions, then refresh the page.", "fatal");
+            this.OnMessage("Access to your microphone and camera was denied. Please change the permissions, then refresh the page.", "fatal");
             return;
         }
 
-        const broker: IBroker = new Broker(roomId, ChatApp.GetAttendeeId(), ChatApp.GetSessionId());
+        const broker: IBroker = new Broker(roomId, this.GetAttendeeId(), this.GetSessionId());
 
         this.connectionManager = new ConnectionManager(broker);
-        this.connectionManager.OnClientConnect = (clientId) => ChatApp.OnConnect(clientId);
-        this.connectionManager.OnClientDisconnect = (clientId) => ChatApp.OnDisconnect(clientId);
-        this.connectionManager.OnNeedLocalStream = () => ChatApp.localStream;
+        this.connectionManager.OnClientConnect = (clientId) => this.OnConnect(clientId);
+        this.connectionManager.OnClientDisconnect = (clientId) => this.OnDisconnect(clientId);
+        this.connectionManager.OnNeedLocalStream = () => this.localStream;
         this.connectionManager.OnHasStreams = (clientId, streams) => {
             streams.forEach(stream => {
-                ChatApp.OnRemoteStream(clientId, stream);
+                this.OnRemoteStream(clientId, stream);
             });
         };
 
         await broker.Open();
 
-        ChatApp.OnConnect(ChatApp.GetAttendeeId());
-        ChatApp.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
+        this.OnConnect(this.GetAttendeeId());
+        this.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
     }
 }

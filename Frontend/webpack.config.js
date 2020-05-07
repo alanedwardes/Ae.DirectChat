@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
   mode: 'production',
-  entry: './src/ChatApp.ts',
+  entry: './src/Entry.ts',
   module: {
     rules: [
       {
@@ -19,6 +19,6 @@ module.exports = {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
     libraryTarget: 'var',
-    library: 'ChatApp'
+    library: 'DirectChat'
   },
 };
