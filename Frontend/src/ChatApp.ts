@@ -55,7 +55,8 @@ export class ChatApp {
         try {
             await this.userMedia.GetMediaStream();
         }
-        catch {
+        catch (err) {
+            console.error(err);
             this.OnMessage("Access to your microphone and camera was denied. Please change the permissions, then refresh the page.", "fatal");
             return;
         }
