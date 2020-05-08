@@ -32,7 +32,7 @@ export class MainUI {
             let settings: IUserMediaSettings = this.userMedia.GetSettings();
 
             let search = window.location.search.substring(1).split('&');
-            for (var i = 0; i < search.length; i++) {
+            for (let i = 0; i < search.length; i++) {
                 let parts = search[i].split('=').filter(decodeURIComponent);
                 let settingName = parts[0];
                 let settingValue = parts[1];
@@ -128,7 +128,7 @@ export class MainUI {
 
         let lastCategory;
         let settings: IUserMediaSettings = this.userMedia.GetSettings();
-        for (var key in settings) {
+        for (let key in settings) {
             if (settings.hasOwnProperty(key)) {
                 if (settings[key].Hidden) {
                     continue;

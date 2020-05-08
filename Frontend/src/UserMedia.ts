@@ -261,7 +261,7 @@ export class UserMedia implements IUserMedia {
         const videoTracks: MediaStreamTrack[] = stream.getVideoTracks();
         console.assert(videoTracks.length <= 1, "Expected 1 or 0 video tracks, there are " + videoTracks.length);
 
-        var combined = this.ProcessAudioTrackToMono(stream);
+        let combined = this.ProcessAudioTrackToMono(stream);
 
         if (videoTracks.length > 0) {
             combined.addTrack(videoTracks[0]);
@@ -285,7 +285,7 @@ export class UserMedia implements IUserMedia {
 
         this.analyserNode.getFloatTimeDomainData(sampleBuffer);
 
-        var peak = 0;
+        let peak = 0;
         sampleBuffer.forEach(function (value) {
             peak = Math.max(peak, Math.abs(value));
         });
