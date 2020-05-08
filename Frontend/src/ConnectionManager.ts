@@ -1,5 +1,7 @@
 import { IBroker, Envelope } from "./Broker";
-import { IPeerConnector, PeerConnector } from "./PeerConnector";
+import { IPeerConnector } from "./PeerConnector";
+import { ISessionConfig } from "./SessionConfig";
+import { IPeerConnectorFactory } from "./PeerConnectorFactory";
 
 interface OnHasStreamsDelegate {
     (fromId: string, streams: readonly MediaStream[]): void;
@@ -25,9 +27,13 @@ export class ConnectionManager {
     public OnClientDisconnect: OnClientDisconnectDelegate;
 
     private connectors: { [fromId: string]: IPeerConnector; } = {};
+    private readonly sessionConfig: ISessionConfig;
+    private readonly peerConnectorFactory: IPeerConnectorFactory;
 
-    constructor(broker: IBroker) {
+    constructor(broker: IBroker, sessionConfig: ISessionConfig, peerConnectorFactory: IPeerConnectorFactory) {
         this.broker = broker;
+        this.sessionConfig = sessionConfig;
+        this.peerConnectorFactory = peerConnectorFactory;
         this.broker.OnMessage = (message: Envelope) => this.OnMessage(message);
     }
 
@@ -52,7 +58,7 @@ export class ConnectionManager {
         }
 
         this.OnClientConnect(fromId);
-        const peerConnector: IPeerConnector = new PeerConnector();
+        const peerConnector = this.peerConnectorFactory.CreatePeerConnector();
 
         peerConnector.OnConnectionChanged = newState => {
             if (newState == "failed") {
@@ -81,7 +87,7 @@ export class ConnectionManager {
     }
 
     private OnMessage(message: Envelope) {
-        if (message.FromId == this.broker.GetLocalClientId()) {
+        if (message.FromId == this.sessionConfig.AttendeeId) {
             return;
         }
 

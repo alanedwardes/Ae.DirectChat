@@ -1,7 +1,8 @@
 import { IUserMedia } from "./UserMedia";
-import { v4 as uuidv4 } from 'uuid';
 import { Broker, IBroker } from "./Broker";
 import { ConnectionManager } from "./ConnectionManager";
+import { ISessionConfig } from "./SessionConfig"
+import { PeerConnectorFactory } from "./PeerConnectorFactory";
 
 interface OnConnectDelegate {
     (connectionId: string): void;
@@ -24,10 +25,11 @@ interface OnMessage {
 }
 
 export class ChatApp {
-    public NewGuid(): string { return uuidv4(); }
+    private readonly sessionConfig: ISessionConfig;
 
-    constructor(userMedia: IUserMedia) {
+    constructor(userMedia: IUserMedia, sessionConfig: ISessionConfig) {
         this.userMedia = userMedia;
+        this.sessionConfig = sessionConfig;
     }
 
     private readonly userMedia: IUserMedia;
@@ -40,13 +42,7 @@ export class ChatApp {
     public OnRemoteStream: OnRemoteStreamDelegate;
     public OnMessage: OnMessage;
 
-    private sessionId: string = uuidv4();
-    private GetSessionId(): string { return this.sessionId; }
-
-    private attendeeId: string = uuidv4();
-    public GetAttendeeId(): string { return this.attendeeId; }
-
-    public async Start(roomId: string): Promise<void> {
+    public async Start(): Promise<void> {
         this.userMedia.OnMediaStreamAvailable = mediaStream => {
             this.localStream = mediaStream;
             this.OnLocalStream(mediaStream);
@@ -64,9 +60,11 @@ export class ChatApp {
             return;
         }
 
-        const broker: IBroker = new Broker(roomId, this.GetAttendeeId(), this.GetSessionId());
+        const broker: IBroker = new Broker(this.sessionConfig);
 
-        this.connectionManager = new ConnectionManager(broker);
+        let peerConnectorFactory = new PeerConnectorFactory();
+
+        this.connectionManager = new ConnectionManager(broker, this.sessionConfig, peerConnectorFactory);
         this.connectionManager.OnClientConnect = (clientId) => this.OnConnect(clientId);
         this.connectionManager.OnClientDisconnect = (clientId) => this.OnDisconnect(clientId);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
@@ -78,7 +76,7 @@ export class ChatApp {
 
         await broker.Open();
 
-        this.OnConnect(this.GetAttendeeId());
+        this.OnConnect(this.sessionConfig.AttendeeId);
         this.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
     }
 }

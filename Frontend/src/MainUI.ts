@@ -1,36 +1,19 @@
 import { ChatApp } from "./ChatApp";
 import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia";
+import { ISessionConfig } from "./SessionConfig";
 
 export class MainUI {
     private readonly chatApp: ChatApp;
     private readonly userMedia: IUserMedia;
+    private readonly sessionConfig: ISessionConfig;
 
-    constructor(chatApp: ChatApp, userMedia: IUserMedia) {
-       this.chatApp = chatApp;
-       this.userMedia = userMedia;
+    constructor(chatApp: ChatApp, userMedia: IUserMedia, sessionConfig: ISessionConfig) {
+        this.chatApp = chatApp;
+        this.userMedia = userMedia;
+        this.sessionConfig = sessionConfig;
     }
 
     public initialise(): void {
-        let isLocal = !window.location.protocol.startsWith("http");
-
-        let roomId;
-        if (isLocal) {
-            roomId = window.location.hash.replace('#', '');
-        }
-        else {
-            roomId = window.location.pathname.replace('/', '');
-        }
-
-        if (roomId == "") {
-            roomId = this.chatApp.NewGuid();
-            if (isLocal) {
-                window.history.replaceState(null, document.title, '#' + roomId);
-            }
-            else {
-                window.history.replaceState(null, document.title, '/' + roomId);
-            }
-        }
-
         function hideControls() {
             document.querySelector(".controls").classList.add('faded');
         }
@@ -81,7 +64,7 @@ export class MainUI {
             let li = document.createElement("li");
             li.style.borderColor = '#' + connectionId.substring(0, 6);
 
-            if (this.chatApp.GetAttendeeId() == connectionId) {
+            if (this.sessionConfig.AttendeeId == connectionId) {
                 li.innerHTML = connectionId + " (you)";
             }
             else {
@@ -141,7 +124,7 @@ export class MainUI {
             video.play();
         }
 
-        this.chatApp.Start(roomId);
+        this.chatApp.Start();
 
         let lastCategory;
         let settings: IUserMediaSettings = this.userMedia.GetSettings();

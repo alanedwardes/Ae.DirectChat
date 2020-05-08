@@ -1,7 +1,8 @@
+import { ISessionConfig } from "./SessionConfig";
+
 export interface IBroker {
     Open(): Promise<void>
     Send(payload: any, type: string, connectionId: string): void
-    GetLocalClientId(): string;
     OnMessage: OnMessageDelegate;
 }
 
@@ -18,19 +19,12 @@ interface OnMessageDelegate {
 
 export class Broker implements IBroker {
     private socket: WebSocket;
-    private roomId: string;
-    private fromId: string;
-    private sessionId: string;
 
     public OnMessage: OnMessageDelegate;
+    private readonly sessionConfig: ISessionConfig;
 
-    public constructor(roomId: string, fromId: string, sessionId: string) {
-        this.roomId = roomId;
-        this.fromId = fromId;
-        this.sessionId = sessionId;
-    }
-    GetLocalClientId(): string {
-        return this.fromId;
+    public constructor(sessionConfig: ISessionConfig) {
+        this.sessionConfig = sessionConfig;
     }
 
     public async Open(): Promise<void> {
@@ -39,7 +33,7 @@ export class Broker implements IBroker {
         this.socket.onerror = (event: ErrorEvent) => console.error(event);
         this.socket.onclose = () => this.Open();
         return new Promise(resolve => this.socket.onopen = () => {
-            this.Send(this.sessionId, "discover", this.fromId);
+            this.Send(this.sessionConfig.SessionId, "discover", this.sessionConfig.RoomId);
             resolve();
         });
     }
@@ -57,9 +51,9 @@ export class Broker implements IBroker {
 
     public Send(payload: any, type: string, toId: string): void {
         const serialized: string = JSON.stringify({
-            roomId: this.roomId,
+            roomId: this.sessionConfig.RoomId,
             toId: toId,
-            fromId: this.fromId,
+            fromId: this.sessionConfig.AttendeeId,
             type: type,
             data: JSON.stringify(payload)
         });
