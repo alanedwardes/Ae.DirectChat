@@ -216,6 +216,18 @@ export class UserMedia implements IUserMedia {
         }
     }
 
+    private CreateAudioContext(): void {
+        const windowDictionary = window as { [key: string]: any };
+
+        // Fall back to webkit audio context
+        let audioContext = windowDictionary['AudioContext'] || windowDictionary['webkitAudioContext'];
+
+        // Lazy initialise the audio context
+        if (this.audioContext == null) {
+            this.audioContext = new audioContext();
+        }
+    }
+
     public async GetMediaStream(): Promise<MediaStream> {
         const audioConstraints: MediaTrackConstraints = {};
         audioConstraints.noiseSuppression = this.currentSettings.AudioNoiseSuppression.Value;
@@ -250,10 +262,7 @@ export class UserMedia implements IUserMedia {
 
         const stream: MediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        // Lazy initialise the audio context
-        if (this.audioContext == null) {
-            this.audioContext = new AudioContext();
-        }
+        this.CreateAudioContext();
 
         const audioTracks: MediaStreamTrack[] = stream.getAudioTracks();
         console.assert(audioTracks.length == 1, "Expected 1 audio track, there are " + audioTracks.length);

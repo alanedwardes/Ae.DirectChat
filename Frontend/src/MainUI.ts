@@ -20,11 +20,14 @@ export class MainUI {
 
         let timeout = setTimeout(hideControls, 10000);
 
-        window.onmousemove = () => {
+        function ShowControls() : void {
             clearTimeout(timeout);
             timeout = setTimeout(hideControls, 10000);
             document.querySelector(".controls").classList.remove('faded');
-        };
+        }
+
+        window.onmousemove = () => ShowControls();
+        window.ontouchstart = () => ShowControls();
 
         this.chatApp.OnMessage = (messageText, messageType) => this.logMessage(messageText, messageType);
 
