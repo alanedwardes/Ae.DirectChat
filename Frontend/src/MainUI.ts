@@ -339,12 +339,14 @@ export class MainUI {
     private shouldDrawMeter: boolean = false;
     public drawAudioMeter() {
         let canvas = <HTMLCanvasElement>document.getElementById("volumeCanvas");
-        let context = canvas.getContext("2d");
 
         if (!this.shouldDrawMeter) {
-            context.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.width = 0;
+            canvas.height = 0;
             return;
         }
+
+        let context = canvas.getContext("2d");
 
         let sample = this.userMedia.SampleInput();
 

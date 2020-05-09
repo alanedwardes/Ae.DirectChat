@@ -120,7 +120,6 @@ form input[type=checkbox] {
 
 #volumeCanvas {
     position:absolute;
-    z-index:-1;
     top:0;
 }
 
