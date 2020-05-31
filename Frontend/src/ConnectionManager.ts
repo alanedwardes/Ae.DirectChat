@@ -1,5 +1,5 @@
 import { IBroker, Envelope } from "./Broker";
-import { IPeerConnector } from "./PeerConnector";
+import { IPeerConnector, ConnectionChange } from "./PeerConnector";
 import { ISessionConfig } from "./SessionConfig";
 import { IPeerConnectorFactory } from "./PeerConnectorFactory";
 
@@ -11,20 +11,15 @@ interface OnNeedLocalStreamDelegate {
     (): MediaStream;
 }
 
-interface OnClientConnectDelegate {
-    (clientId: string): void;
-}
-
-interface OnClientDisconnectDelegate {
-    (clientId: string): void;
+interface OnClientConnectionChangedDelegate {
+    (clientId: string, change: ConnectionChange): void;
 }
 
 export class ConnectionManager {
     private readonly broker: IBroker;
     public OnHasStreams: OnHasStreamsDelegate;
     public OnNeedLocalStream: OnNeedLocalStreamDelegate;
-    public OnClientConnect: OnClientConnectDelegate;
-    public OnClientDisconnect: OnClientDisconnectDelegate;
+    public OnConnectionChanged: OnClientConnectionChangedDelegate;
 
     private connectors: { [fromId: string]: IPeerConnector; } = {};
     private readonly sessionConfig: ISessionConfig;
@@ -47,22 +42,20 @@ export class ConnectionManager {
         }
     }
 
-    private DisconnectClient(connectionId: string): void {
-        delete this.connectors[connectionId];
-        this.OnClientDisconnect(connectionId);
-    }
-
     private CreateConnector(fromId: string): void {
         if (this.connectors.hasOwnProperty(fromId)) {
             return;
         }
 
-        this.OnClientConnect(fromId);
         const peerConnector = this.peerConnectorFactory.CreatePeerConnector();
 
-        peerConnector.OnConnectionChanged = newState => {
-            if (newState == "failed") {
-                this.DisconnectClient(fromId);
+        peerConnector.OnConnectionChanged = change => {
+            this.OnConnectionChanged(fromId, change);
+            
+            // If any change type is failed, clean up
+            if (change.State == "failed") {
+                console.warn("Deleting connector from " + fromId);
+                delete this.connectors[fromId];
             }
         };
 

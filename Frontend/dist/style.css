@@ -148,7 +148,40 @@ form input[type=checkbox] {
     object-fit: contain;
 }
 
-#attendeeList li {
-    border-bottom-width: 2px;
-    border-bottom-style: solid;
+#attendeeList {
+    width:512px;
+}
+
+#attendeeList li .status {
+    float:right;
+    text-align:center;
+    margin:2px 2.5px;
+    text-transform: uppercase;
+    font-size:0.75em;
+    border-radius: 5px;
+    padding:1px 5px;
+}
+
+#attendeeList li .status.rtc {
+    background:#197278;
+}
+
+#attendeeList li .status.rtc::before {
+    content: 'rtc: ';
+}
+
+#attendeeList li .status.ice {
+    background:#772e25;
+}
+
+#attendeeList li .status.ice::before {
+    content: 'net: ';
+}
+
+#attendeeList li .status.signal {
+    background:#c44536;
+}
+
+#attendeeList li .status.signal::before {
+    content: 'peer: ';
 }

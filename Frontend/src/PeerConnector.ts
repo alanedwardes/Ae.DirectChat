@@ -27,8 +27,24 @@ interface OnAcceptedOfferDelegate {
     (offer: RTCSessionDescription): void;
 }
 
-interface OnConnectionChangedDelegate {
-    (newState: string): void;
+export enum ConnectionChangeType {
+    Ice,
+    RTC,
+    Signal
+}
+
+export class ConnectionChange {
+    constructor(Type: ConnectionChangeType, State: string) {
+       this.Type = Type;
+       this.State = State;
+    }
+
+    readonly Type: ConnectionChangeType;
+    readonly State: string;
+}
+
+export interface OnConnectionChangedDelegate {
+    (change: ConnectionChange): void;
 }
 
 export class PeerConnector implements IPeerConnector {
@@ -47,13 +63,16 @@ export class PeerConnector implements IPeerConnector {
         this.connector = new RTCPeerConnection(configuration);
 
         this.connector.onconnectionstatechange = () => {
-            this.OnConnectionChanged(this.connector.connectionState);
+            this.OnConnectionChanged(new ConnectionChange(ConnectionChangeType.RTC, this.connector.connectionState));
         }
 
         this.connector.oniceconnectionstatechange = () => {
-            this.OnConnectionChanged(this.connector.iceConnectionState);
+            this.OnConnectionChanged(new ConnectionChange(ConnectionChangeType.Ice, this.connector.iceConnectionState));
         }
 
+        this.connector.onsignalingstatechange = () => {
+            this.OnConnectionChanged(new ConnectionChange(ConnectionChangeType.Signal, this.connector.signalingState));
+        }
 
         this.connector.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
             if (event.candidate == null) {

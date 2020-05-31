@@ -3,13 +3,10 @@ import { Broker, IBroker } from "./Broker";
 import { ConnectionManager } from "./ConnectionManager";
 import { ISessionConfig } from "./SessionConfig"
 import { PeerConnectorFactory } from "./PeerConnectorFactory";
+import { ConnectionChange } from "./PeerConnector";
 
-interface OnConnectDelegate {
-    (connectionId: string): void;
-}
-
-interface OnDisconnectDelegate {
-    (connectionId: string): void;
+interface OnConnectionChangedDelegate {
+    (connectionId: string, change: ConnectionChange): void;
 }
 
 interface OnLocalStreamDelegate {
@@ -36,10 +33,9 @@ export class ChatApp {
     private localStream: MediaStream;
     private connectionManager: ConnectionManager;
 
-    public OnConnect: OnConnectDelegate;
-    public OnDisconnect: OnDisconnectDelegate;
     public OnLocalStream: OnLocalStreamDelegate;
     public OnRemoteStream: OnRemoteStreamDelegate;
+    public OnConnectionChanged: OnConnectionChangedDelegate;
     public OnMessage: OnMessage;
 
     public async Start(): Promise<void> {
@@ -66,8 +62,7 @@ export class ChatApp {
         let peerConnectorFactory = new PeerConnectorFactory();
 
         this.connectionManager = new ConnectionManager(broker, this.sessionConfig, peerConnectorFactory);
-        this.connectionManager.OnClientConnect = (clientId) => this.OnConnect(clientId);
-        this.connectionManager.OnClientDisconnect = (clientId) => this.OnDisconnect(clientId);
+        this.connectionManager.OnConnectionChanged = (clientId, change) => this.OnConnectionChanged(clientId, change);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
         this.connectionManager.OnHasStreams = (clientId, streams) => {
             streams.forEach(stream => {
@@ -77,7 +72,6 @@ export class ChatApp {
 
         await broker.Open();
 
-        this.OnConnect(this.sessionConfig.AttendeeId);
         this.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
     }
 }

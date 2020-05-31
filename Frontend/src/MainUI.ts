@@ -1,6 +1,7 @@
 import { ChatApp } from "./ChatApp";
 import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia";
 import { ISessionConfig } from "./SessionConfig";
+import { ConnectionChangeType } from "./PeerConnector";
 
 export class MainUI {
     private readonly chatApp: ChatApp;
@@ -20,7 +21,7 @@ export class MainUI {
 
         let timeout = setTimeout(hideControls, 10000);
 
-        function ShowControls() : void {
+        function ShowControls(): void {
             clearTimeout(timeout);
             timeout = setTimeout(hideControls, 10000);
             document.querySelector(".controls").classList.remove('faded');
@@ -61,51 +62,11 @@ export class MainUI {
 
         let joinSound = document.createElement("audio");
         joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
-        this.chatApp.OnConnect = connectionId => {
-            joinSound.play();
-
-            let li = document.createElement("li");
-            li.setAttribute("data-connection-id", connectionId);
-            li.style.borderColor = '#' + connectionId.substring(0, 6);
-
-            let shortConnectionId = connectionId.substring(0, 6);
-
-            if (this.sessionConfig.AttendeeId == connectionId) {
-                li.innerHTML = shortConnectionId + " (you)";
-            }
-            else {
-                li.innerHTML = shortConnectionId;
-                this.logMessage("Someone connected!", "info");
-            }
-            document.querySelector("#attendeeList").appendChild(li)
-        };
 
         let remoteVideo: { [id: string]: HTMLDivElement; } = {};
 
         let leaveSound = document.createElement("audio");
         leaveSound.src = "https://s.edward.es/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
-        this.chatApp.OnDisconnect = connectionId => {
-            leaveSound.play();
-
-            this.logMessage("Someone disconnected!", "info");
-            document.querySelector('#remoteVideo').removeChild(remoteVideo[connectionId]);
-            delete remoteVideo[connectionId];
-
-            this.flowRemoteVideo();
-
-            let list = document.querySelector("#attendeeList");
-
-            let nodesToRemove = new Array<HTMLLIElement>();
-            list.childNodes.forEach((childNode: HTMLLIElement) => {
-                if (childNode.getAttribute("data-connection-id") == connectionId) {
-                    nodesToRemove.push(childNode);
-                }
-            });
-
-            nodesToRemove.forEach(child => {
-                list.removeChild(child);
-            });
-        };
 
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {
             let div;
@@ -133,6 +94,51 @@ export class MainUI {
             let video = document.querySelector<HTMLVideoElement>('#localVideo');
             video.srcObject = mediaStream;
             video.play();
+        }
+
+        this.chatApp.OnConnectionChanged = (clientId, change) => {
+            let list = document.querySelector("#attendeeList");
+
+            let clientNode : HTMLLIElement = list.querySelector('li[data-connection-id="' + clientId + '"]');
+            if (clientNode === null) {
+                clientNode = document.createElement("li");
+                clientNode.setAttribute("data-connection-id", clientId);
+                let shortConnectionId = clientId.substring(0, 6);
+    
+                if (this.sessionConfig.AttendeeId == clientId) {
+                    clientNode.innerHTML = shortConnectionId + " (you)";
+                }
+                else {
+                    joinSound.play();
+                    clientNode.innerHTML = shortConnectionId;
+                    this.logMessage("Someone connected!", "info");
+                }
+                list.appendChild(clientNode);
+            }
+
+            let statusNode : HTMLSpanElement = clientNode.querySelector('span[data-status-type="' + change.Type.toString() + '"]');
+            if (statusNode === null) {
+                statusNode = document.createElement("span");
+                statusNode.classList.add("status");
+                statusNode.innerHTML = "pending";
+
+                switch (change.Type) {
+                    case ConnectionChangeType.Ice:
+                        statusNode.classList.add("ice");
+                        break;
+                    case ConnectionChangeType.Signal:
+                        statusNode.classList.add("signal");
+                        break;
+                    case ConnectionChangeType.RTC:
+                        statusNode.classList.add("rtc");
+                        break;
+                }
+
+                statusNode.setAttribute("data-status-type", change.Type.toString());
+                clientNode.appendChild(statusNode);
+            }
+
+            statusNode.innerHTML = change.State;
         }
 
         this.chatApp.Start();
