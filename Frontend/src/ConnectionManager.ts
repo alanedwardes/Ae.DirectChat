@@ -55,6 +55,7 @@ export class ConnectionManager {
             // If any change type is failed, clean up
             if (change.State == "failed") {
                 console.warn("Deleting connector from " + fromId);
+                this.connectors[fromId].Shutdown();
                 delete this.connectors[fromId];
             }
         };

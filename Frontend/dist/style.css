@@ -160,9 +160,6 @@ form input[type=checkbox] {
     font-size:0.75em;
     border-radius: 5px;
     padding:1px 5px;
-}
-
-#attendeeList li .status.rtc {
     background:#197278;
 }
 
@@ -170,16 +167,8 @@ form input[type=checkbox] {
     content: 'rtc: ';
 }
 
-#attendeeList li .status.ice {
-    background:#772e25;
-}
-
 #attendeeList li .status.ice::before {
     content: 'net: ';
-}
-
-#attendeeList li .status.signal {
-    background:#c44536;
 }
 
 #attendeeList li .status.signal::before {

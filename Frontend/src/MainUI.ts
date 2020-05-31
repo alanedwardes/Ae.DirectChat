@@ -96,24 +96,22 @@ export class MainUI {
             video.play();
         }
 
-        this.chatApp.OnConnectionChanged = (clientId, change) => {
-            let list = document.querySelector("#attendeeList");
+        const attendeeList = document.querySelector("#attendeeList");
 
-            let clientNode : HTMLLIElement = list.querySelector('li[data-connection-id="' + clientId + '"]');
+        let selfNode = document.createElement("li");
+        selfNode.innerHTML = this.sessionConfig.AttendeeId.substring(0, 6) + ' (you)';
+        attendeeList.appendChild(selfNode);
+
+        this.chatApp.OnConnectionChanged = (clientId, change) => {
+            let clientNode : HTMLLIElement = attendeeList.querySelector('li[data-connection-id="' + clientId + '"]');
             if (clientNode === null) {
                 clientNode = document.createElement("li");
                 clientNode.setAttribute("data-connection-id", clientId);
-                let shortConnectionId = clientId.substring(0, 6);
-    
-                if (this.sessionConfig.AttendeeId == clientId) {
-                    clientNode.innerHTML = shortConnectionId + " (you)";
-                }
-                else {
-                    joinSound.play();
-                    clientNode.innerHTML = shortConnectionId;
-                    this.logMessage("Someone connected!", "info");
-                }
-                list.appendChild(clientNode);
+                clientNode.innerHTML = clientId.substring(0, 6);
+                attendeeList.appendChild(clientNode);
+
+                joinSound.play();
+                this.logMessage("Someone connected!", "info");
             }
 
             let statusNode : HTMLSpanElement = clientNode.querySelector('span[data-status-type="' + change.Type.toString() + '"]');

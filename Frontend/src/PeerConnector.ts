@@ -1,4 +1,5 @@
 export interface IPeerConnector {
+    Shutdown(): void;
     StartLocalStream(stream: MediaStream): void;
     GetStatistics(): Promise<RTCStatsReport>;
     AcceptAnswer(answer: RTCSessionDescriptionInit): Promise<void>;
@@ -96,6 +97,10 @@ export class PeerConnector implements IPeerConnector {
         this.connector.ontrack = (ev: RTCTrackEvent) => {
             this.OnHasStreams(ev.streams);
         };
+    }
+
+    public Shutdown() : void {
+        this.connector.close();
     }
 
     public async GetStatistics(): Promise<RTCStatsReport> {
