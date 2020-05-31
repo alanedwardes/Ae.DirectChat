@@ -16,7 +16,7 @@ export class MainUI {
 
     public initialise(): void {
         function hideControls() {
-            document.querySelector(".controls").classList.add('faded');
+            document.querySelectorAll(".controls, .window").forEach(node => node.classList.add('faded'));
         }
 
         let timeout = setTimeout(hideControls, 10000);
@@ -24,7 +24,7 @@ export class MainUI {
         function ShowControls(): void {
             clearTimeout(timeout);
             timeout = setTimeout(hideControls, 10000);
-            document.querySelector(".controls").classList.remove('faded');
+            document.querySelectorAll(".controls, .window").forEach(node => node.classList.remove('faded'));
         }
 
         window.onmousemove = () => ShowControls();

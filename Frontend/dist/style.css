@@ -104,11 +104,11 @@ form input[type=checkbox] {
     display: none;
 }
 
-.controls.faded {
-    opacity:0;
+.faded {
+    opacity:0 !important;
 }
 
-.controls {
+.controls, .window {
     opacity:1;
     transition: opacity 1s;
 }
