@@ -65,13 +65,16 @@ export class MainUI {
             joinSound.play();
 
             let li = document.createElement("li");
+            li.setAttribute("data-connection-id", connectionId);
             li.style.borderColor = '#' + connectionId.substring(0, 6);
 
+            let shortConnectionId = connectionId.substring(0, 6);
+
             if (this.sessionConfig.AttendeeId == connectionId) {
-                li.innerHTML = connectionId + " (you)";
+                li.innerHTML = shortConnectionId + " (you)";
             }
             else {
-                li.innerHTML = connectionId;
+                li.innerHTML = shortConnectionId;
                 this.logMessage("Someone connected!", "info");
             }
             document.querySelector("#attendeeList").appendChild(li)
@@ -91,12 +94,17 @@ export class MainUI {
             this.flowRemoteVideo();
 
             let list = document.querySelector("#attendeeList");
-            for (let i in list.children) {
-                let item = list.children[i];
-                if (item.innerHTML == connectionId) {
-                    list.removeChild(item);
+
+            let nodesToRemove = new Array<HTMLLIElement>();
+            list.childNodes.forEach((childNode: HTMLLIElement) => {
+                if (childNode.getAttribute("data-connection-id") == connectionId) {
+                    nodesToRemove.push(childNode);
                 }
-            }
+            });
+
+            nodesToRemove.forEach(child => {
+                list.removeChild(child);
+            });
         };
 
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {

@@ -67,7 +67,7 @@ export class PeerConnector implements IPeerConnector {
 
         this.connector.onnegotiationneeded = async () => {
             try {
-                await this.connector.setLocalDescription(await this.connector.createOffer());
+                await this.connector.setLocalDescription(null);
                 this.OnHasOffer(this.connector.localDescription);
             } catch (err) {
                 console.error(err);

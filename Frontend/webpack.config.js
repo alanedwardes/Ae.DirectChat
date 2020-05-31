@@ -3,6 +3,7 @@ const path = require('path');
 module.exports = {
   mode: 'production',
   entry: './src/Entry.ts',
+  devtool: "source-map",
   module: {
     rules: [
       {
