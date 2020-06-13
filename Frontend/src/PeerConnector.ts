@@ -52,6 +52,7 @@ export class PeerConnector implements IPeerConnector {
     private connector: RTCPeerConnection;
     private localCandidates: RTCIceCandidate[] = new Array<RTCIceCandidate>();
     private remoteCandidates: RTCIceCandidate[] = new Array<RTCIceCandidate>();
+    private readonly shouldOffer: boolean;
 
     public OnHasIceCandidates: OnHasIceCandidatesDelegate;
     public OnHasStreams: OnHasStreamsDelegate;
@@ -59,7 +60,9 @@ export class PeerConnector implements IPeerConnector {
     public OnAcceptedOffer: OnAcceptedOfferDelegate;
     public OnConnectionChanged: OnConnectionChangedDelegate;
 
-    public constructor() {
+    public constructor(shouldOffer : boolean) {
+        this.shouldOffer = shouldOffer;
+        this.shouldOffer;
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         this.connector = new RTCPeerConnection(configuration);
 
@@ -86,8 +89,14 @@ export class PeerConnector implements IPeerConnector {
         }
 
         this.connector.onnegotiationneeded = async () => {
+            if (!this.shouldOffer && this.connector.localDescription == null && this.connector.remoteDescription == null) {
+                console.log("Ignoring onnegotiationneeded since this connector shouldn't offer");
+                return;
+            }
+
             try {
                 await this.connector.setLocalDescription(null);
+                console.log("OnHasOffer");
                 this.OnHasOffer(this.connector.localDescription);
             } catch (err) {
                 console.error(err);
@@ -119,10 +128,12 @@ export class PeerConnector implements IPeerConnector {
     }
 
     public async AcceptAnswer(answer: RTCSessionDescriptionInit): Promise<void> {
+        console.log("AcceptAnswer");
         await this.connector.setRemoteDescription(answer);
     }
 
     public async AcceptOffer(offer: RTCSessionDescriptionInit): Promise<void> {
+        console.log("AcceptOffer");
         await this.connector.setRemoteDescription(offer);
 
         await this.connector.setLocalDescription(await this.connector.createAnswer());

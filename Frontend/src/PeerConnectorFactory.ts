@@ -1,11 +1,11 @@
 import { IPeerConnector, PeerConnector } from "./PeerConnector";
 
 export interface IPeerConnectorFactory {
-    CreatePeerConnector() : IPeerConnector;
+    CreatePeerConnector(shouldOffer: boolean) : IPeerConnector;
 }
 
 export class PeerConnectorFactory implements IPeerConnectorFactory {
-    public CreatePeerConnector() : IPeerConnector {
-        return new PeerConnector();
+    public CreatePeerConnector(shouldOffer: boolean) : IPeerConnector {
+        return new PeerConnector(shouldOffer);
     }
 }

@@ -47,7 +47,10 @@ export class ConnectionManager {
             return;
         }
 
-        const peerConnector = this.peerConnectorFactory.CreatePeerConnector();
+        const shouldOffer: boolean = fromId < this.sessionConfig.AttendeeId;
+
+        const peerConnector = this.peerConnectorFactory.CreatePeerConnector(shouldOffer);
+        console.log("Creating peer connector for " + fromId + " (shouldOffer: " + shouldOffer + ")");
 
         peerConnector.OnConnectionChanged = change => {
             this.OnConnectionChanged(fromId, change);
@@ -95,6 +98,9 @@ export class ConnectionManager {
         }
         if (message.Type == "candidates") {
             this.connectors[message.FromId].AddRemoteCandidates(message.Data);
+        }
+        if (message.Type == "discover") {
+            this.broker.Send({}, "acknowledge", message.FromId);
         }
     }
 }

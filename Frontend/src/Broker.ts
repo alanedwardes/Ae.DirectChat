@@ -45,7 +45,6 @@ export class Broker implements IBroker {
         envelope.RoomId = data["roomId"];
         envelope.Type = data["type"];
         envelope.FromId = data["fromId"];
-        console.info("Received: " + envelope.Type);
         this.OnMessage(envelope);
     }
 
@@ -57,7 +56,6 @@ export class Broker implements IBroker {
             type: type,
             data: JSON.stringify(payload)
         });
-        console.info("Sent: " + type)
         this.socket.send(serialized);
     }
 }
