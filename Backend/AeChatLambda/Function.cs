@@ -14,6 +14,7 @@ using Amazon.Lambda.Core;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using MaxMind.GeoIP2;
+using MaxMind.GeoIP2.Responses;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -42,6 +43,8 @@ namespace AeChatLambda
 
         private bool bIsInitialised;
 
+        private IDictionary<string, CityResponse> cityResponses = new Dictionary<string, CityResponse>();
+
         private string SessionTable = Environment.GetEnvironmentVariable("SESSION_TABLE");
 
         public Stream FunctionHandler(Stream inputStream, ILambdaContext context)
@@ -66,6 +69,18 @@ namespace AeChatLambda
             return new MemoryStream(Encoding.UTF8.GetBytes("{}"));
         }
 
+        private async Task<CityResponse> GetCity(WsRequestIdentity requestIdentity)
+        {
+            if (cityResponses.ContainsKey(requestIdentity.SourceIp))
+            {
+                return cityResponses[requestIdentity.SourceIp];
+            }
+
+            var location = await geoIp.CityAsync(requestIdentity.SourceIp);
+            cityResponses[requestIdentity.SourceIp] = location;
+            return location;
+        }
+
         private async Task ProcessMessage(Envelope envelope, WsRequest request)
         {
             if (!bIsInitialised)
@@ -83,13 +98,14 @@ namespace AeChatLambda
             {
                 case "discover":
                     await AddConnection(envelope.RoomId, envelope.FromId, request.RequestContext.ConnectionId, Guid.Parse(JsonConvert.DeserializeObject<string>(envelope.Data)));
-                    var location = await geoIp.CityAsync(request.RequestContext.Identity.SourceIp);
+                    var cityResponse = await GetCity(request.RequestContext.Identity);
                     envelope.Data = JsonConvert.SerializeObject(new
                     {
-                        city = location.City.Name,
-                        country = location.Country.Name,
-                        continent = location.Continent.Name,
-                        subdivision = location.MostSpecificSubdivision.Name
+                        cityName = cityResponse.City.Name,
+                        countryName = cityResponse.Country.Name,
+                        countryCode = cityResponse.Country.IsoCode,
+                        continentName = cityResponse.Continent.Name,
+                        subdivisionName = cityResponse.MostSpecificSubdivision.Name
                     });
                     await Broadcast(envelope, request.RequestContext.ConnectionId);
                     break;
