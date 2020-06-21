@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AeChatLambda.Entities;
@@ -10,6 +11,9 @@ using Amazon.ApiGatewayManagementApi.Model;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
+using MaxMind.GeoIP2;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -24,6 +28,10 @@ namespace AeChatLambda
             ServiceURL = Environment.GetEnvironmentVariable("GATEWAY_URL")
         });
 
+        private IAmazonSimpleSystemsManagement ssm = new AmazonSimpleSystemsManagementClient();
+
+        private IGeoIP2WebServicesClient geoIp;
+
         private JsonSerializerSettings serialiserSettings = new JsonSerializerSettings
         {
             Converters = new[]
@@ -31,6 +39,8 @@ namespace AeChatLambda
                 new StringEnumConverter()
             }
         };
+
+        private bool bIsInitialised;
 
         private string SessionTable = Environment.GetEnvironmentVariable("SESSION_TABLE");
 
@@ -48,7 +58,7 @@ namespace AeChatLambda
             if(request?.RequestContext?.RouteKey == RouteKey.Default)
             {
                 var envelope = JsonConvert.DeserializeObject<Envelope>(request.Body);
-                ProcessMessage(envelope, request.RequestContext.ConnectionId).GetAwaiter().GetResult();
+                ProcessMessage(envelope, request).GetAwaiter().GetResult();
             }
 
             Console.WriteLine(JsonConvert.SerializeObject(request, serialiserSettings));
@@ -56,14 +66,32 @@ namespace AeChatLambda
             return new MemoryStream(Encoding.UTF8.GetBytes("{}"));
         }
 
-        private async Task ProcessMessage(Envelope envelope, string connectionId)
+        private async Task ProcessMessage(Envelope envelope, WsRequest request)
         {
+            if (!bIsInitialised)
+            {
+                var parameters = ssm.GetParametersAsync(new GetParametersRequest { Names = new List<string> { "MaxMindLicense" } }).GetAwaiter().GetResult();
+
+                var maxMindLicense = parameters.Parameters.Single(x => x.Name == "MaxMindLicense").Value.Split(",");
+
+                geoIp = new WebServiceClient(int.Parse(maxMindLicense[0]), maxMindLicense[1]);
+
+                bIsInitialised = true;
+            }
+
             switch (envelope.Type)
             {
                 case "discover":
-                    await AddConnection(envelope.RoomId, envelope.FromId, connectionId, Guid.Parse(JsonConvert.DeserializeObject<string>(envelope.Data)));
-                    envelope.Data = null; // Remove the session token
-                    await Broadcast(envelope, connectionId);
+                    await AddConnection(envelope.RoomId, envelope.FromId, request.RequestContext.ConnectionId, Guid.Parse(JsonConvert.DeserializeObject<string>(envelope.Data)));
+                    var location = await geoIp.CityAsync(request.RequestContext.Identity.SourceIp);
+                    envelope.Data = JsonConvert.SerializeObject(new
+                    {
+                        city = location.City.Name,
+                        country = location.Country.Name,
+                        continent = location.Continent.Name,
+                        subdivision = location.MostSpecificSubdivision.Name
+                    });
+                    await Broadcast(envelope, request.RequestContext.ConnectionId);
                     break;
                 default:
                     await SendTo(envelope);

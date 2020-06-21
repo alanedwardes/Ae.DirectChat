@@ -9,5 +9,7 @@ namespace AeChatLambda.Entities
         public RouteKey RouteKey { get; set; }
         [DataMember]
         public string ConnectionId { get; set; }
+        [DataMember]
+        public WsRequestIdentity Identity { get; set; }
     }
 }
