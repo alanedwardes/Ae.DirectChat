@@ -1,6 +1,6 @@
 import { IUserMedia } from "./UserMedia";
 import { Broker, IBroker } from "./Broker";
-import { ConnectionManager } from "./ConnectionManager";
+import { ConnectionManager, ClientLocation } from "./ConnectionManager";
 import { ISessionConfig } from "./SessionConfig"
 import { PeerConnectorFactory } from "./PeerConnectorFactory";
 import { ConnectionChange } from "./PeerConnector";
@@ -21,6 +21,10 @@ interface OnMessage {
     (message: string, type: string): void;
 }
 
+interface OnClientLocation {
+    (clientId: string, location: ClientLocation): void;
+}
+
 export class ChatApp {
     private readonly sessionConfig: ISessionConfig;
 
@@ -37,6 +41,7 @@ export class ChatApp {
     public OnRemoteStream: OnRemoteStreamDelegate;
     public OnConnectionChanged: OnConnectionChangedDelegate;
     public OnMessage: OnMessage;
+    public OnLocation: OnClientLocation;
 
     public async Start(): Promise<void> {
         this.userMedia.OnMediaStreamAvailable = mediaStream => {
@@ -62,6 +67,7 @@ export class ChatApp {
         let peerConnectorFactory = new PeerConnectorFactory();
 
         this.connectionManager = new ConnectionManager(broker, this.sessionConfig, peerConnectorFactory);
+        this.connectionManager.OnLocation = (clientId, location) => this.OnLocation(clientId, location);
         this.connectionManager.OnConnectionChanged = (clientId, change) => this.OnConnectionChanged(clientId, change);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
         this.connectionManager.OnHasStreams = (clientId, streams) => {

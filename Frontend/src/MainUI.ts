@@ -7,11 +7,20 @@ export class MainUI {
     private readonly chatApp: ChatApp;
     private readonly userMedia: IUserMedia;
     private readonly sessionConfig: ISessionConfig;
+    private readonly joinSound: HTMLAudioElement;
+    private readonly leaveSound: HTMLAudioElement;
+    private remoteVideo: { [id: string]: HTMLDivElement; } = {};
 
     constructor(chatApp: ChatApp, userMedia: IUserMedia, sessionConfig: ISessionConfig) {
         this.chatApp = chatApp;
         this.userMedia = userMedia;
         this.sessionConfig = sessionConfig;
+
+        this.joinSound = document.createElement("audio");
+        this.joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
+
+        this.leaveSound = document.createElement("audio");
+        this.leaveSound.src = "https://s.edward.es/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
     }
 
     public initialise(): void {
@@ -60,18 +69,10 @@ export class MainUI {
             this.applyNewSettings(settings);
         }
 
-        let joinSound = document.createElement("audio");
-        joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
-
-        let remoteVideo: { [id: string]: HTMLDivElement; } = {};
-
-        let leaveSound = document.createElement("audio");
-        leaveSound.src = "https://s.edward.es/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
-
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {
             let div;
-            if (remoteVideo.hasOwnProperty(clientId)) {
-                div = remoteVideo[clientId];
+            if (this.remoteVideo.hasOwnProperty(clientId)) {
+                div = this.remoteVideo[clientId];
             }
             else {
                 div = document.createElement("div");
@@ -80,7 +81,7 @@ export class MainUI {
 
                 let video = document.createElement("video");
                 div.appendChild(video);
-                remoteVideo[clientId] = div;
+                this.remoteVideo[clientId] = div;
             }
 
             let video: HTMLVideoElement = <HTMLVideoElement>div.children[0];
@@ -96,23 +97,29 @@ export class MainUI {
             video.play();
         }
 
-        const attendeeList = document.querySelector("#attendeeList");
-
         let selfNode = document.createElement("li");
         selfNode.innerHTML = this.sessionConfig.AttendeeId.substring(0, 6) + ' (you)';
-        attendeeList.appendChild(selfNode);
+        document.querySelector("#attendeeList").appendChild(selfNode);
+
+        this.chatApp.OnLocation = (clientId, location) => {
+            let clientNode = this.getClientNode(clientId);
+            let locationNode : HTMLSpanElement = clientNode.querySelector('span.location');
+            if (locationNode === null) {
+                locationNode = document.createElement("span");
+
+                let flag = document.createElement("img");
+                flag.src = "https://chat.alanedwardes.com/flags/" + location.CountryCode.toLowerCase() + ".png";
+                flag.title = location.SubdivisionName + ", " + location.CityName + ", " + location.CountryName + ", " + location.ContinentName;
+                flag.alt = flag.title;
+                locationNode.appendChild(flag);
+
+                locationNode.classList.add("location");
+                clientNode.appendChild(locationNode);
+            }
+        };
 
         this.chatApp.OnConnectionChanged = (clientId, change) => {
-            let clientNode : HTMLLIElement = attendeeList.querySelector('li[data-connection-id="' + clientId + '"]');
-            if (clientNode === null) {
-                clientNode = document.createElement("li");
-                clientNode.setAttribute("data-connection-id", clientId);
-                clientNode.innerHTML = clientId.substring(0, 6);
-                attendeeList.appendChild(clientNode);
-
-                joinSound.play();
-                this.logMessage("Someone connected!", "info");
-            }
+            let clientNode = this.getClientNode(clientId);
 
             let statusNode : HTMLSpanElement = clientNode.querySelector('span[data-status-type="' + change.Type.toString() + '"]');
             if (statusNode === null) {
@@ -184,6 +191,31 @@ export class MainUI {
                 sourceElement.parentElement.classList.add("hidden");
             });
         });
+    }
+
+    public countryCodeEmoji(country: string): string {
+        const offset = 127397;
+        const f = country.codePointAt(0);
+        const s = country.codePointAt(1);
+    
+        return String.fromCodePoint(f + offset) + String.fromCodePoint(s + offset);
+    }
+
+    public getClientNode(clientId: string): HTMLLIElement{
+        const attendeeList = document.querySelector("#attendeeList");
+
+        let clientNode : HTMLLIElement = attendeeList.querySelector('li[data-connection-id="' + clientId + '"]');
+        if (clientNode === null) {
+            clientNode = document.createElement("li");
+            clientNode.setAttribute("data-connection-id", clientId);
+            clientNode.innerHTML = clientId.substring(0, 6);
+            attendeeList.appendChild(clientNode);
+
+            this.joinSound.play();
+            this.logMessage("Someone connected!", "info");
+        }
+
+        return clientNode;
     }
 
     public logMessage(messageText: string, messageType: string) {

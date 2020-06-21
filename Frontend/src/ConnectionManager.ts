@@ -15,11 +15,24 @@ interface OnClientConnectionChangedDelegate {
     (clientId: string, change: ConnectionChange): void;
 }
 
+export class ClientLocation {
+    CityName: string;
+    CountryName: string;
+    CountryCode: string;
+    ContinentName: string;
+    SubdivisionName: string;
+}
+
+interface OnClientLocationDelegate {
+    (clientId: string, location: ClientLocation): void;
+}
+
 export class ConnectionManager {
     private readonly broker: IBroker;
     public OnHasStreams: OnHasStreamsDelegate;
     public OnNeedLocalStream: OnNeedLocalStreamDelegate;
     public OnConnectionChanged: OnClientConnectionChangedDelegate;
+    public OnLocation: OnClientLocationDelegate;
 
     private connectors: { [fromId: string]: IPeerConnector; } = {};
     private readonly sessionConfig: ISessionConfig;
@@ -98,6 +111,15 @@ export class ConnectionManager {
         }
         if (message.Type == "candidates") {
             this.connectors[message.FromId].AddRemoteCandidates(message.Data);
+        }
+        if (message.Type == "location") {
+            let location: ClientLocation = new ClientLocation();
+            location.CityName = message.Data["cityName"];
+            location.CountryName = message.Data["countryName"];
+            location.CountryCode = message.Data["countryCode"];
+            location.ContinentName = message.Data["continentName"];
+            location.SubdivisionName = message.Data["subdivisionName"];
+            this.OnLocation(message.FromId, location);
         }
         if (message.Type == "discover") {
             this.broker.Send({}, "acknowledge", message.FromId);
