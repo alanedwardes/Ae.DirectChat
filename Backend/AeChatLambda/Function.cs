@@ -98,21 +98,32 @@ namespace AeChatLambda
             {
                 case "discover":
                     await AddConnection(envelope.RoomId, envelope.FromId, request.RequestContext.ConnectionId, Guid.Parse(JsonConvert.DeserializeObject<string>(envelope.Data)));
-                    var cityResponse = await GetCity(request.RequestContext.Identity);
-                    envelope.Data = JsonConvert.SerializeObject(new
-                    {
-                        cityName = cityResponse.City.Name,
-                        countryName = cityResponse.Country.Name,
-                        countryCode = cityResponse.Country.IsoCode,
-                        continentName = cityResponse.Continent.Name,
-                        subdivisionName = cityResponse.MostSpecificSubdivision.Name
-                    });
                     await Broadcast(envelope, request.RequestContext.ConnectionId);
+                    await BroadcastLocation(envelope, request);
+                    break;
+                case "acknowledge":
+                    envelope.Data = null;
+                    await SendTo(envelope);
+                    await BroadcastLocation(envelope, request);
                     break;
                 default:
                     await SendTo(envelope);
                     break;
             }
+        }
+
+        private async Task BroadcastLocation(Envelope envelope, WsRequest request)
+        {
+            var locationEnvelope = new Envelope
+            {
+                Data = JsonConvert.SerializeObject(new Location(await GetCity(request.RequestContext.Identity))),
+                FromId = envelope.FromId,
+                RoomId = envelope.RoomId,
+                ToId = envelope.RoomId,
+                Type = "location"
+            };
+
+            await Broadcast(locationEnvelope, request.RequestContext.ConnectionId);
         }
 
         private async Task AddConnection(Guid roomId, Guid clientId, string connectionId, Guid sessionId)
