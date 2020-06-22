@@ -163,10 +163,6 @@ form input[type=checkbox] {
     background:#197278;
 }
 
-#attendeeList li .location {
-    font-size:.5em;
-}
-
 #attendeeList li .location img {
     font-size:.5em;
     padding-left:1em;

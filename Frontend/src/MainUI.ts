@@ -105,13 +105,20 @@ export class MainUI {
             let clientNode = this.getClientNode(clientId);
             let locationNode : HTMLSpanElement = clientNode.querySelector('span.location');
             if (locationNode === null) {
+                const shortLocation = location.CityName + " " + location.CountryCode;
+
                 locationNode = document.createElement("span");
+                locationNode.title = location.SubdivisionName + ", " + location.CityName + ", " + location.CountryName + ", " + location.ContinentName;
 
                 let flag = document.createElement("img");
                 flag.src = "https://chat.alanedwardes.com/flags/" + location.CountryCode.toLowerCase() + ".png";
-                flag.title = location.SubdivisionName + ", " + location.CityName + ", " + location.CountryName + ", " + location.ContinentName;
+                flag.title = locationNode.title;
                 flag.alt = flag.title;
                 locationNode.appendChild(flag);
+
+                let label = document.createElement("span");
+                label.innerHTML = shortLocation;
+                locationNode.appendChild(label);
 
                 locationNode.classList.add("location");
                 clientNode.appendChild(locationNode);
