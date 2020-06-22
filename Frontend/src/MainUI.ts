@@ -105,7 +105,7 @@ export class MainUI {
             let clientNode = this.getClientNode(clientId);
             let locationNode : HTMLSpanElement = clientNode.querySelector('span.location');
             if (locationNode === null) {
-                const shortLocation = location.CityName + " " + location.CountryCode;
+                const shortLocation = location.CityName ? location.CityName + " " + location.CountryCode : location.CountryCode;
 
                 locationNode = document.createElement("span");
                 locationNode.title = location.SubdivisionName + ", " + location.CityName + ", " + location.CountryName + ", " + location.ContinentName;
