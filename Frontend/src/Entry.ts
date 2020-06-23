@@ -35,7 +35,7 @@ export class Entry {
         let userMedia = new UserMedia();
         let app = new ChatApp(userMedia, sessionConfig);
 
-        this.mainUI = new MainUI(app, userMedia, sessionConfig);
+        this.mainUI = new MainUI(app, userMedia);
         this.mainUI.initialise();
     }
 }

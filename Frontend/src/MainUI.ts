@@ -1,20 +1,17 @@
 import { ChatApp } from "./ChatApp";
 import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia";
-import { ISessionConfig } from "./SessionConfig";
 import { ConnectionChangeType } from "./PeerConnector";
 
 export class MainUI {
     private readonly chatApp: ChatApp;
     private readonly userMedia: IUserMedia;
-    private readonly sessionConfig: ISessionConfig;
     private readonly joinSound: HTMLAudioElement;
     private readonly leaveSound: HTMLAudioElement;
     private remoteVideo: { [id: string]: HTMLDivElement; } = {};
 
-    constructor(chatApp: ChatApp, userMedia: IUserMedia, sessionConfig: ISessionConfig) {
+    constructor(chatApp: ChatApp, userMedia: IUserMedia) {
         this.chatApp = chatApp;
         this.userMedia = userMedia;
-        this.sessionConfig = sessionConfig;
 
         this.joinSound = document.createElement("audio");
         this.joinSound.src = "https://s.edward.es/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
@@ -98,15 +95,16 @@ export class MainUI {
         }
 
         let selfNode = document.createElement("li");
-        selfNode.innerHTML = this.sessionConfig.AttendeeId.substring(0, 6) + ' (you)';
+        selfNode.innerHTML = 'You';
         document.querySelector("#attendeeList").appendChild(selfNode);
 
         this.chatApp.OnLocation = (clientId, location) => {
             let clientNode = this.getClientNode(clientId);
-            let locationNode : HTMLSpanElement = clientNode.querySelector('span.location');
-            if (locationNode === null) {
-                const shortLocation = location.CityName ? location.CityName + " " + location.CountryCode : location.CountryCode;
+            let locationNode: HTMLSpanElement = clientNode.querySelector('span.location');
 
+            const shortLocation: string = location.CityName ? location.CityName + " " + location.CountryCode : location.CountryCode;
+
+            if (locationNode === null) {
                 locationNode = document.createElement("span");
                 locationNode.title = location.SubdivisionName + ", " + location.CityName + ", " + location.CountryName + ", " + location.ContinentName;
 
@@ -116,19 +114,18 @@ export class MainUI {
                 flag.alt = flag.title;
                 locationNode.appendChild(flag);
 
-                let label = document.createElement("span");
-                label.innerHTML = shortLocation;
-                locationNode.appendChild(label);
-
                 locationNode.classList.add("location");
                 clientNode.appendChild(locationNode);
             }
+
+            let labelNode = clientNode.querySelector('span.label');
+            labelNode.innerHTML = shortLocation;
         };
 
         this.chatApp.OnConnectionChanged = (clientId, change) => {
             let clientNode = this.getClientNode(clientId);
 
-            let statusNode : HTMLSpanElement = clientNode.querySelector('span[data-status-type="' + change.Type.toString() + '"]');
+            let statusNode: HTMLSpanElement = clientNode.querySelector('span[data-status-type="' + change.Type.toString() + '"]');
             if (statusNode === null) {
                 statusNode = document.createElement("span");
                 statusNode.classList.add("status");
@@ -204,18 +201,23 @@ export class MainUI {
         const offset = 127397;
         const f = country.codePointAt(0);
         const s = country.codePointAt(1);
-    
+
         return String.fromCodePoint(f + offset) + String.fromCodePoint(s + offset);
     }
 
-    public getClientNode(clientId: string): HTMLLIElement{
+    public getClientNode(clientId: string): HTMLLIElement {
         const attendeeList = document.querySelector("#attendeeList");
 
-        let clientNode : HTMLLIElement = attendeeList.querySelector('li[data-connection-id="' + clientId + '"]');
+        let clientNode: HTMLLIElement = attendeeList.querySelector('li[data-connection-id="' + clientId + '"]');
         if (clientNode === null) {
             clientNode = document.createElement("li");
             clientNode.setAttribute("data-connection-id", clientId);
-            clientNode.innerHTML = clientId.substring(0, 6);
+
+            let label = document.createElement("span");
+            label.innerHTML = clientId.substring(0, 6);
+            label.className = "label";
+            clientNode.appendChild(label);
+
             attendeeList.appendChild(clientNode);
 
             this.joinSound.play();
