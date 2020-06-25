@@ -167,6 +167,9 @@ export class MainUI {
                 if (key.startsWith("Video")) {
                     parentElement = document.querySelector('#videoParameters');
                 }
+                if (key.startsWith("Screen")) {
+                    parentElement = document.querySelector('#screenParameters');
+                }
 
                 if (lastCategory != settings[key].Category) {
                     this.createCategoryTitle(settings[key].Category, parentElement);
@@ -183,6 +186,10 @@ export class MainUI {
 
         document.querySelector('#videoControlsButton').addEventListener('click', () => {
             document.querySelector('#videoControls').classList.remove("hidden");
+        });
+
+        document.querySelector('#screenControlsButton').addEventListener('click', () => {
+            document.querySelector('#screenControls').classList.remove("hidden");
         });
 
         document.querySelector('#attendeeWindowButton').addEventListener('click', () => {

@@ -64,6 +64,9 @@ export class UserSettingsSelection<T> extends UserMediaSetting<T> {
 
 export interface IUserMediaSettings {
     [key: string]: any;
+
+    ScreenEnabled: UserMediaSetting<boolean>;
+
     VideoEnabled: UserMediaSetting<boolean>;
     VideoResolution: UserSettingsSelection<string>;
     VideoFrameRate: UserMediaSettingsRange;
@@ -86,6 +89,8 @@ export interface IUserMediaSettings {
 }
 
 class UserMediaSettings implements IUserMediaSettings {
+    public ScreenEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Screen", "Start sharing your screen", "Basic Screen", false);
+
     public VideoEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Video", "Start sending your camera", "Basic Video", false);
     public VideoResolution: UserSettingsSelection<string> = new UserSettingsSelection<string>("720p", ["480p", "720p", "1080p"], "Resolution", "Sets the ideal resolution for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
     public VideoFrameRate: UserMediaSettingsRange = new UserMediaSettingsRange(15, 60, 5, 20, "Frame Rate", "Sets the ideal frame rate for your camera. Your web browser might choose to ignore this.", "Advanced Video", false);
@@ -136,6 +141,10 @@ export class UserMedia implements IUserMedia {
     public async SetSettings(newSettings: IUserMediaSettings): Promise<void> {
         let shouldRefreshMediaAccess: boolean;
         let shouldRefreshLocalListen: boolean;
+
+        if (this.currentSettings.ScreenEnabled.Value !== newSettings.ScreenEnabled.Value) {
+            shouldRefreshMediaAccess = true;
+        }
 
         if (this.currentSettings.AudioAutoGainControl.Value !== newSettings.AudioAutoGainControl.Value) {
             shouldRefreshMediaAccess = true;
@@ -267,7 +276,15 @@ export class UserMedia implements IUserMedia {
         const audioTracks: MediaStreamTrack[] = stream.getAudioTracks();
         console.assert(audioTracks.length == 1, "Expected 1 audio track, there are " + audioTracks.length);
 
-        const videoTracks: MediaStreamTrack[] = stream.getVideoTracks();
+        let videoTracks: MediaStreamTrack[];
+        if (this.currentSettings.ScreenEnabled.Value) {
+            // @ts-ignore
+            const screenStream: MediaStream = await navigator.mediaDevices.getDisplayMedia();
+            videoTracks = screenStream.getVideoTracks();
+        } else {
+            videoTracks = stream.getVideoTracks();
+        }
+
         console.assert(videoTracks.length <= 1, "Expected 1 or 0 video tracks, there are " + videoTracks.length);
 
         let combined = this.ProcessAudioTrackToMono(stream);
