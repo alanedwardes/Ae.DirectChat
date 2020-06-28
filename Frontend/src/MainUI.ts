@@ -150,7 +150,8 @@ export class MainUI {
 
             statusNode.innerHTML = change.State;
 
-            if (change.Type == ConnectionChangeType.Ice && change.State == "failed") {
+            if ((change.Type == ConnectionChangeType.Ice && change.State == "failed") /* Firefox */ ||
+                (change.Type == ConnectionChangeType.Signal && change.State == "closed") /* Chrome */) {
                 this.clientDisconnected(clientId);
             }
         }
