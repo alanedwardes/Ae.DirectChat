@@ -149,6 +149,10 @@ export class MainUI {
             }
 
             statusNode.innerHTML = change.State;
+
+            if (change.Type == ConnectionChangeType.Ice && change.State == "failed") {
+                this.clientDisconnected(clientId);
+            }
         }
 
         this.chatApp.Start();
@@ -237,6 +241,16 @@ export class MainUI {
         }
 
         return clientNode;
+    }
+
+    public clientDisconnected(clientId: string): void {
+        let clientNode = this.getClientNode(clientId);
+        clientNode.parentElement.removeChild(clientNode);
+
+        if (this.remoteVideo.hasOwnProperty(clientId)) {
+            let videoNode = this.remoteVideo[clientId];
+            videoNode.parentElement.removeChild(videoNode);
+        }
     }
 
     public logMessage(messageText: string, messageType: string) {
