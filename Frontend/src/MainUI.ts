@@ -100,7 +100,8 @@ export class MainUI {
 
         this.chatApp.OnLocation = (clientId, location) => {
             let clientNode = this.getClientNode(clientId);
-            let locationNode: HTMLSpanElement = clientNode.querySelector('span.location');
+            let labelNode = clientNode.querySelector('span.label');
+            let locationNode: HTMLSpanElement = labelNode.querySelector('span.location');
 
             const shortLocation: string = location.CityName ? location.CityName + " " + location.CountryCode : location.CountryCode;
 
@@ -115,11 +116,11 @@ export class MainUI {
                 locationNode.appendChild(flag);
 
                 locationNode.classList.add("location");
-                clientNode.appendChild(locationNode);
+                labelNode.appendChild(locationNode);
             }
 
-            let labelNode = clientNode.querySelector('span.label');
-            labelNode.innerHTML = shortLocation;
+            let nameNode = labelNode.querySelector('span.name');
+            nameNode.innerHTML = shortLocation;
         };
 
         this.chatApp.OnConnectionChanged = (clientId, change) => {
@@ -220,10 +221,14 @@ export class MainUI {
             clientNode = document.createElement("li");
             clientNode.setAttribute("data-connection-id", clientId);
 
-            let label = document.createElement("span");
-            label.innerHTML = clientId.substring(0, 6);
-            label.className = "label";
-            clientNode.appendChild(label);
+            let labelNode = document.createElement("span");
+            labelNode.className = "label";
+            clientNode.appendChild(labelNode);
+
+            let nameNode = document.createElement("span");
+            nameNode.innerHTML = clientId.substring(0, 6);
+            nameNode.className = "name";
+            labelNode.appendChild(nameNode);
 
             attendeeList.appendChild(clientNode);
 
