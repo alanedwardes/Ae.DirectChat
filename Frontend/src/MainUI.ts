@@ -33,6 +33,13 @@ export class MainUI {
             document.querySelectorAll(".controls, .window").forEach(node => node.classList.remove('faded'));
         }
 
+        window.addEventListener('beforeunload', (e) => {
+            if (document.querySelectorAll('.remoteVideo').length > 0) {
+                e.preventDefault();
+                e.returnValue = 'There are others in the chat session.';
+            }
+        });
+
         window.onmousemove = () => ShowControls();
         window.ontouchstart = () => ShowControls();
 
