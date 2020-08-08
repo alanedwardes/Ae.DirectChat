@@ -24,7 +24,7 @@ export class MainUI {
         this.drawAudioHistogram();
 
         function hideControls() {
-            document.querySelectorAll(".controls, .window").forEach(node => node.classList.add('faded'));
+            document.querySelectorAll(".controls").forEach(node => node.classList.add('faded'));
         }
 
         let timeout = setTimeout(hideControls, 10000);
@@ -32,7 +32,7 @@ export class MainUI {
         function ShowControls(): void {
             clearTimeout(timeout);
             timeout = setTimeout(hideControls, 10000);
-            document.querySelectorAll(".controls, .window").forEach(node => node.classList.remove('faded'));
+            document.querySelectorAll(".controls").forEach(node => node.classList.remove('faded'));
         }
 
         window.addEventListener('beforeunload', (e) => {
@@ -325,8 +325,13 @@ export class MainUI {
     public applyNewSettings(newSettings: IUserMediaSettings) {
         this.userMedia.SetSettings(newSettings);
 
+        const oldShouldDrawVolumeHistogram: boolean = this.shouldDrawVolumeHistogram;
+
         this.shouldDrawVolumeHistogram = newSettings.AudioLocalMeter.Value;
-        this.drawAudioHistogram();
+
+        if (!oldShouldDrawVolumeHistogram && this.shouldDrawVolumeHistogram) {
+            this.drawAudioHistogram();
+        }
     }
 
     public createSetting(settingKey: string, settingValue: IUserMediaSetting, parent: HTMLElement) {
@@ -441,7 +446,7 @@ export class MainUI {
         window.requestAnimationFrame(() => this.drawAudioHistogram());
 
         let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
-        
+
         this.volumeHistogram.unshift(this.userMedia.SampleInput());
 
         if (this.volumeHistogram.length > canvas.width) {
@@ -449,10 +454,10 @@ export class MainUI {
         }
 
         var audioControls = document.getElementById("audioControls");
-        if (audioControls.classList.contains("hidden") || audioControls.classList.contains("faded")) {
+        if (audioControls.classList.contains("hidden")) {
             return;
         }
-        
+
         let context = canvas.getContext("2d");
 
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -461,24 +466,26 @@ export class MainUI {
             const sample: number = this.volumeHistogram[i];
 
             context.fillStyle = "green";
-    
+
             if (sample >= .99) {
                 context.fillStyle = "red";
             }
-            
+
             context.fillRect(canvas.width - i, canvas.height, 1, -canvas.height * sample);
         }
 
         const rowTicks: number = 10;
+        const rowHeight: number = Math.round(canvas.height / rowTicks);
         context.fillStyle = "rgba(255, 255, 255, 0.1)";
         for (let i = 1; i < rowTicks; i++) {
-            context.fillRect(0, Math.round(canvas.height  / rowTicks * i), canvas.width, 1);
+            context.fillRect(0, rowHeight * i, canvas.width, 1);
         }
 
         const columnTicks: number = 40;
+        const columnWidth: number = Math.round(canvas.width / columnTicks);
         context.fillStyle = "rgba(255, 255, 255, 0.1)";
         for (let i = 1; i < columnTicks; i++) {
-            context.fillRect(Math.round(canvas.width / columnTicks * i), 0, 1, canvas.height);
+            context.fillRect(columnWidth * i, 0, 1, canvas.height);
         }
     }
 
