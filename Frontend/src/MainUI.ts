@@ -259,6 +259,8 @@ export class MainUI {
             let videoNode = this.remoteVideo[clientId];
             videoNode.parentElement.removeChild(videoNode);
         }
+
+        this.leaveSound.play();
     }
 
     public logMessage(messageText: string, messageType: string) {
