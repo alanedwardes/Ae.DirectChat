@@ -3,6 +3,9 @@ export interface IUserMedia {
     GetSettings(): UserMediaSettings;
     SetSettings(newSettings: UserMediaSettings): Promise<void>;
     SampleInput(): number;
+    SampleOutput(): number;
+    AddRemoteStream(tag: string, mediaStream: MediaStream): void;
+    RemoveRemoteStream(tag: string): void;
     OnMediaStreamAvailable: OnMediaStreamAvailable;
 }
 
@@ -122,13 +125,15 @@ interface OnMediaStreamAvailable {
 }
 
 export class UserMedia implements IUserMedia {
+    private remoteStreams: { [tag: string]: MediaStreamAudioSourceNode; } = {};
     private audioContext: AudioContext;
-    private gainNode: GainNode;
-    private analyserNode: AnalyserNode;
-    private compressorNode: DynamicsCompressorNode;
-    private localListenElement: HTMLAudioElement;
-    private currentStream: MediaStream;
+    private inputGainNode: GainNode;
+    private inputAnalyserNode: AnalyserNode;
+    private inputCompressorNode: DynamicsCompressorNode;
+    private inputStreamAudioNode: AudioNode;
     private inputAudioChannels: number;
+
+    private outputAnalyserNode: AnalyserNode;
 
     private currentSettings: IUserMediaSettings = new UserMediaSettings();
 
@@ -202,7 +207,7 @@ export class UserMedia implements IUserMedia {
         this.currentSettings = newSettings;
 
         // If we should refresh media access, and there is currently a stream to refresh
-        if (shouldRefreshMediaAccess && this.currentStream != null) {
+        if (shouldRefreshMediaAccess) {
             await this.GetMediaStream();
         }
 
@@ -211,21 +216,32 @@ export class UserMedia implements IUserMedia {
         }
     }
 
-    private EvaluateLocalListen(): void {
-        if (this.localListenElement == null) {
-            this.localListenElement = document.createElement("audio");
-        }
+    private isLocalInputStreamConnected: boolean;
 
+    private EvaluateLocalListen(): void {
         if (this.currentSettings.AudioLocalListen.Value) {
-            this.localListenElement.srcObject = this.currentStream;
-            this.localListenElement.play();
+            this.ConnectLocalListen();
         }
         else {
-            this.localListenElement.pause();
+            this.DisconnectLocalListen();
         }
     }
 
-    private CreateAudioContext(): void {
+    private ConnectLocalListen(): void {
+        if (!this.isLocalInputStreamConnected) {
+            this.inputStreamAudioNode.connect(this.GetAudioContext().destination);
+            this.isLocalInputStreamConnected = true;
+        }
+    }
+
+    private DisconnectLocalListen(): void {
+        if (this.isLocalInputStreamConnected) {
+            this.inputStreamAudioNode.disconnect(this.GetAudioContext().destination);
+            this.isLocalInputStreamConnected = false;
+        }
+    }
+
+    private GetAudioContext(): AudioContext {
         const windowDictionary = window as { [key: string]: any };
 
         // Fall back to webkit audio context
@@ -234,6 +250,26 @@ export class UserMedia implements IUserMedia {
         // Lazy initialise the audio context
         if (this.audioContext == null) {
             this.audioContext = new audioContext();
+        }
+
+        return this.audioContext;
+    }
+
+    public AddRemoteStream(tag: string, mediaStream: MediaStream): void {
+        if (this.outputAnalyserNode == null) {
+            this.outputAnalyserNode = this.GetAudioContext().createAnalyser();
+            this.outputAnalyserNode.connect(this.GetAudioContext().destination);
+        }
+
+        this.RemoveRemoteStream(tag);
+        this.remoteStreams[tag] = this.GetAudioContext().createMediaStreamSource(mediaStream);
+        this.remoteStreams[tag].connect(this.outputAnalyserNode);
+    }
+
+    public RemoveRemoteStream(tag: string): void {
+        if (this.remoteStreams.hasOwnProperty(tag)) {
+            this.remoteStreams[tag].disconnect(this.outputAnalyserNode);
+            delete this.remoteStreams[tag];
         }
     }
 
@@ -271,8 +307,6 @@ export class UserMedia implements IUserMedia {
 
         const stream: MediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        this.CreateAudioContext();
-
         const audioTracks: MediaStreamTrack[] = stream.getAudioTracks();
         console.assert(audioTracks.length == 1, "Expected 1 audio track, there are " + audioTracks.length);
 
@@ -287,29 +321,33 @@ export class UserMedia implements IUserMedia {
 
         console.assert(videoTracks.length <= 1, "Expected 1 or 0 video tracks, there are " + videoTracks.length);
 
-        let combined = this.ProcessAudioTrackToMono(stream);
+        // Disconnect any active local listening
+        this.DisconnectLocalListen();
 
+        this.inputStreamAudioNode = this.ProcessAudioTrackToMono(stream);
+
+        let inputStreamNode = this.GetAudioContext().createMediaStreamDestination();
+        this.inputStreamAudioNode.connect(inputStreamNode);
+
+        let inputStream = inputStreamNode.stream;
         if (videoTracks.length > 0) {
-            combined.addTrack(videoTracks[0]);
+            inputStream.addTrack(videoTracks[0]);
         }
-
-        this.currentStream = combined;
 
         if (this.OnMediaStreamAvailable != null) {
-            this.OnMediaStreamAvailable(this.currentStream);
+            this.OnMediaStreamAvailable(inputStream);
         }
 
-        return this.currentStream;
+        return inputStream;
     }
 
-    public SampleInput(): number {
-        if (this.analyserNode == null) {
+    private static GetSampleFromAnalyser(analyserNode: AnalyserNode): number {
+        if (analyserNode == null) {
             return 0;
         }
 
-        const sampleBuffer = new Float32Array(this.analyserNode.fftSize);
-
-        this.analyserNode.getFloatTimeDomainData(sampleBuffer);
+        const sampleBuffer = new Float32Array(analyserNode.fftSize);
+        analyserNode.getFloatTimeDomainData(sampleBuffer);
 
         let peak = 0;
         sampleBuffer.forEach(function (value) {
@@ -318,13 +356,21 @@ export class UserMedia implements IUserMedia {
         return peak;
     }
 
+    public SampleInput(): number {
+        return UserMedia.GetSampleFromAnalyser(this.inputAnalyserNode);
+    }
+
+    public SampleOutput(): number {
+        return UserMedia.GetSampleFromAnalyser(this.outputAnalyserNode);
+    }
+
     private SetGainParameters(newSettings: UserMediaSettings): void {
-        if (this.gainNode == null) {
+        if (this.inputGainNode == null) {
             return;
         }
 
         if (!newSettings.AudioEnabled.Value) {
-            this.gainNode.gain.value = 0;
+            this.inputGainNode.gain.value = 0;
             return;
         }
 
@@ -332,55 +378,46 @@ export class UserMedia implements IUserMedia {
         // the gain needs to be multiplied by each. For example,
         // with 2 channels, the overall volume maxes out at 50%.
         // I'm not sure whether this is a browser bug or expected.
-        this.gainNode.gain.value = this.inputAudioChannels * newSettings.AudioGain.Value;
+        this.inputGainNode.gain.value = this.inputAudioChannels * newSettings.AudioGain.Value;
     }
 
     private SetCompressionParameters(newSettings: UserMediaSettings): void {
-        if (this.compressorNode == null) {
+        if (this.inputCompressorNode == null) {
             return;
         }
 
-        this.compressorNode.threshold.value = newSettings.AudioCompressorThreshold.Value;
-        this.compressorNode.knee.value = newSettings.AudioCompressorKnee.Value;
-        this.compressorNode.ratio.value = newSettings.AudioCompressorRatio.Value;
-        this.compressorNode.attack.value = newSettings.AudioCompressorAttack.Value;
-        this.compressorNode.release.value = newSettings.AudioCompressorRelease.Value;
+        this.inputCompressorNode.threshold.value = newSettings.AudioCompressorThreshold.Value;
+        this.inputCompressorNode.knee.value = newSettings.AudioCompressorKnee.Value;
+        this.inputCompressorNode.ratio.value = newSettings.AudioCompressorRatio.Value;
+        this.inputCompressorNode.attack.value = newSettings.AudioCompressorAttack.Value;
+        this.inputCompressorNode.release.value = newSettings.AudioCompressorRelease.Value;
     }
 
-    private ProcessAudioTrackToMono(stream: MediaStream): MediaStream {
-        const source: MediaStreamAudioSourceNode = this.audioContext.createMediaStreamSource(stream);
+    private ProcessAudioTrackToMono(stream: MediaStream): AudioNode {
+        const source: MediaStreamAudioSourceNode = this.GetAudioContext().createMediaStreamSource(stream);
         this.inputAudioChannels = source.channelCount;
 
-        const destination: MediaStreamAudioDestinationNode = this.audioContext.createMediaStreamDestination();
-        destination.channelCount = this.currentSettings.AudioStereo.Value ? 2 : 1;
-
-        this.gainNode = this.audioContext.createGain();
+        this.inputGainNode = this.GetAudioContext().createGain();
+        this.inputGainNode.channelCount = this.currentSettings.AudioStereo.Value ? 2 : 1;
+        this.inputGainNode.channelCountMode = "explicit";
         this.SetGainParameters(this.currentSettings);
 
-        source.connect(this.gainNode);
+        source.connect(this.inputGainNode);
 
-        let lastNode: AudioNode = this.gainNode;
+        let lastNode: AudioNode = this.inputGainNode;
 
         if (this.currentSettings.AudioCompressor.Value) {
-            this.compressorNode = this.audioContext.createDynamicsCompressor();
+            this.inputCompressorNode = this.GetAudioContext().createDynamicsCompressor();
             this.SetCompressionParameters(this.currentSettings);
-            lastNode.connect(this.compressorNode);
-            lastNode = this.compressorNode;
+            lastNode.connect(this.inputCompressorNode);
+            lastNode = this.inputCompressorNode;
         }
         else {
-            this.compressorNode = null;
+            this.inputCompressorNode = null;
         }
 
-        if (this.currentSettings.AudioLocalMeter.Value) {
-            this.analyserNode = this.audioContext.createAnalyser();
-            lastNode.connect(this.analyserNode);
-        }
-        else {
-            this.analyserNode = null;
-        }
-
-        lastNode.connect(destination);
-
-        return destination.stream;
+        this.inputAnalyserNode = this.GetAudioContext().createAnalyser();
+        lastNode.connect(this.inputAnalyserNode);
+        return this.inputAnalyserNode;
     }
 }

@@ -2,12 +2,17 @@ import { ChatApp } from "./ChatApp";
 import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia";
 import { ConnectionChangeType } from "./PeerConnector";
 
+class RemoteMedia {
+    public Element: HTMLDivElement;
+    public Stream: MediaStream;
+}
+
 export class MainUI {
     private readonly chatApp: ChatApp;
     private readonly userMedia: IUserMedia;
     private readonly joinSound: HTMLAudioElement;
     private readonly leaveSound: HTMLAudioElement;
-    private remoteVideo: { [id: string]: HTMLDivElement; } = {};
+    private remoteVideo: { [id: string]: RemoteMedia; } = {};
 
     constructor(chatApp: ChatApp, userMedia: IUserMedia) {
         this.chatApp = chatApp;
@@ -76,22 +81,27 @@ export class MainUI {
         }
 
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {
-            let div;
+            this.userMedia.AddRemoteStream(clientId, mediaStream);
+            let remoteMedia;
             if (this.remoteVideo.hasOwnProperty(clientId)) {
-                div = this.remoteVideo[clientId];
+                remoteMedia = this.remoteVideo[clientId];
             }
             else {
-                div = document.createElement("div");
+                let div = document.createElement("div");
                 div.className = "remoteVideo";
                 document.querySelector('#remoteVideo').appendChild(div);
 
                 let video = document.createElement("video");
                 div.appendChild(video);
-                this.remoteVideo[clientId] = div;
+                remoteMedia = new RemoteMedia();
+                remoteMedia.Element = div;
+                remoteMedia.Stream = mediaStream;
+                this.remoteVideo[clientId] = remoteMedia;
             }
 
-            let video: HTMLVideoElement = <HTMLVideoElement>div.children[0];
+            let video: HTMLVideoElement = <HTMLVideoElement>remoteMedia.Element.children[0];
             video.srcObject = mediaStream;
+            video.muted = true;
             video.play();
 
             this.flowRemoteVideo();
@@ -258,9 +268,11 @@ export class MainUI {
         clientNode.parentElement.removeChild(clientNode);
 
         if (this.remoteVideo.hasOwnProperty(clientId)) {
-            let videoNode = this.remoteVideo[clientId];
-            videoNode.parentElement.removeChild(videoNode);
+            let remoteMedia = this.remoteVideo[clientId];
+            remoteMedia.Element.parentElement.removeChild(remoteMedia.Element);
         }
+
+        this.userMedia.RemoveRemoteStream(clientId);
 
         this.leaveSound.play();
     }
@@ -435,7 +447,8 @@ export class MainUI {
         }
     }
 
-    private volumeHistogram: Array<number> = [];
+    private inputVolumeHistogram: Array<number> = [];
+    private ouputVolumeHistogram: Array<number> = [];
 
     private shouldDrawVolumeHistogram: boolean = true;
     public drawAudioHistogram() {
@@ -447,10 +460,14 @@ export class MainUI {
 
         let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
 
-        this.volumeHistogram.unshift(this.userMedia.SampleInput());
+        this.inputVolumeHistogram.unshift(this.userMedia.SampleInput());
+        if (this.inputVolumeHistogram.length > canvas.width) {
+            this.inputVolumeHistogram.pop();
+        }
 
-        if (this.volumeHistogram.length > canvas.width) {
-            this.volumeHistogram.pop();
+        this.ouputVolumeHistogram.unshift(this.userMedia.SampleOutput());
+        if (this.ouputVolumeHistogram.length > canvas.width) {
+            this.ouputVolumeHistogram.pop();
         }
 
         var audioControls = document.getElementById("audioControls");
@@ -462,15 +479,15 @@ export class MainUI {
 
         context.clearRect(0, 0, canvas.width, canvas.height);
 
-        for (let i = 0; i < this.volumeHistogram.length; i++) {
-            const sample: number = this.volumeHistogram[i];
+        for (let i = 0; i < this.ouputVolumeHistogram.length; i++) {
+            const sample: number = this.ouputVolumeHistogram[i];
+            context.fillStyle = "rgba(255, 255, 255, 0.5)";
+            context.fillRect(canvas.width - i, canvas.height, 1, -canvas.height * sample);
+        }
 
-            context.fillStyle = "green";
-
-            if (sample >= .99) {
-                context.fillStyle = "red";
-            }
-
+        for (let i = 0; i < this.inputVolumeHistogram.length; i++) {
+            const sample: number = this.inputVolumeHistogram[i];
+            context.fillStyle = sample >= .99 ? "red" : "green";
             context.fillRect(canvas.width - i, canvas.height, 1, -canvas.height * sample);
         }
 
