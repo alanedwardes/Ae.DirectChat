@@ -77,7 +77,7 @@ export interface IUserMediaSettings {
     AudioEnabled: UserMediaSetting<boolean>;
     AudioLocalMeter: UserMediaSetting<boolean>;
     AudioGain: UserMediaSettingsRange;
-    AudioLocalListen: UserMediaSetting<boolean>;
+    AudioLocalListen: UserMediaSettingsRange;
     AudioEchoCancellation: UserMediaSetting<boolean>;
     AudioAutoGainControl: UserMediaSetting<boolean>;
     AudioNoiseSuppression: UserMediaSetting<boolean>;
@@ -100,8 +100,8 @@ class UserMediaSettings implements IUserMediaSettings {
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
     public AudioLocalMeter: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio Meter", null, "Basic Audio", false);
-    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 20, 0.5, 1, "Local Gain Multiplier", "The amount of amplification to add to your microphone", "Basic Audio", false);
-    public AudioLocalListen: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Local Listen", "Allow you to hear your own microphone, as the other attendees will hear it", "Advanced Audio", false);
+    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 5, 0.5, 1, "Input Gain", "The amount of amplification to add to your microphone", "Basic Audio", false);
+    public AudioLocalListen: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.05, 0, "Self Listen Volume", "Allow you to hear your own microphone, as the other attendees will hear it", "Advanced Audio", false);
     public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves", "Advanced Audio", false);
     public AudioAutoGainControl: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Auto Gain", "Enable automatic volume control", "Advanced Audio", false);
     public AudioNoiseSuppression: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Noise Suppression", "Try to filter out background sounds", "Advanced Audio", false);
@@ -138,6 +138,7 @@ export class UserMedia implements IUserMedia {
     private currentSettings: IUserMediaSettings = new UserMediaSettings();
 
     public OnMediaStreamAvailable: OnMediaStreamAvailable;
+    public inputStreamMonitorAudioNode: GainNode;
 
     public GetSettings(): IUserMediaSettings {
         return JSON.parse(JSON.stringify(this.currentSettings));
@@ -145,7 +146,6 @@ export class UserMedia implements IUserMedia {
 
     public async SetSettings(newSettings: IUserMediaSettings): Promise<void> {
         let shouldRefreshMediaAccess: boolean;
-        let shouldRefreshLocalListen: boolean;
 
         if (this.currentSettings.ScreenEnabled.Value !== newSettings.ScreenEnabled.Value) {
             shouldRefreshMediaAccess = true;
@@ -153,50 +153,37 @@ export class UserMedia implements IUserMedia {
 
         if (this.currentSettings.AudioAutoGainControl.Value !== newSettings.AudioAutoGainControl.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.AudioEchoCancellation.Value !== newSettings.AudioEchoCancellation.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.AudioNoiseSuppression.Value !== newSettings.AudioNoiseSuppression.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.AudioLocalMeter.Value !== newSettings.AudioLocalMeter.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.VideoEnabled.Value !== newSettings.VideoEnabled.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.VideoResolution.Value !== newSettings.VideoResolution.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.VideoFrameRate.Value !== newSettings.VideoFrameRate.Value) {
             shouldRefreshMediaAccess = true;
-            shouldRefreshLocalListen = true;
-        }
-
-        if (this.currentSettings.AudioLocalListen.Value !== newSettings.AudioLocalListen.Value) {
-            shouldRefreshLocalListen = true;
         }
 
         if (this.currentSettings.AudioStereo.Value !== newSettings.AudioStereo.Value) {
-            shouldRefreshLocalListen = true;
             shouldRefreshMediaAccess = true;
         }
 
         if (this.currentSettings.AudioCompressor.Value !== newSettings.AudioCompressor.Value) {
-            shouldRefreshLocalListen = true;
             shouldRefreshMediaAccess = true;
         }
 
@@ -209,35 +196,6 @@ export class UserMedia implements IUserMedia {
         // If we should refresh media access, and there is currently a stream to refresh
         if (shouldRefreshMediaAccess) {
             await this.GetMediaStream();
-        }
-
-        if (shouldRefreshLocalListen) {
-            this.EvaluateLocalListen();
-        }
-    }
-
-    private isLocalInputStreamConnected: boolean;
-
-    private EvaluateLocalListen(): void {
-        if (this.currentSettings.AudioLocalListen.Value) {
-            this.ConnectLocalListen();
-        }
-        else {
-            this.DisconnectLocalListen();
-        }
-    }
-
-    private ConnectLocalListen(): void {
-        if (!this.isLocalInputStreamConnected) {
-            this.inputStreamAudioNode.connect(this.GetAudioContext().destination);
-            this.isLocalInputStreamConnected = true;
-        }
-    }
-
-    private DisconnectLocalListen(): void {
-        if (this.isLocalInputStreamConnected) {
-            this.inputStreamAudioNode.disconnect(this.GetAudioContext().destination);
-            this.isLocalInputStreamConnected = false;
         }
     }
 
@@ -321,10 +279,17 @@ export class UserMedia implements IUserMedia {
 
         console.assert(videoTracks.length <= 1, "Expected 1 or 0 video tracks, there are " + videoTracks.length);
 
-        // Disconnect any active local listening
-        this.DisconnectLocalListen();
-
         this.inputStreamAudioNode = this.ProcessAudioTrackToMono(stream);
+
+        if (this.inputStreamMonitorAudioNode != null) {
+            this.inputStreamMonitorAudioNode.disconnect();
+        }
+
+        this.inputStreamMonitorAudioNode = this.GetAudioContext().createGain();
+        this.inputStreamMonitorAudioNode.gain.value = this.currentSettings.AudioLocalListen.Value;
+        this.inputStreamMonitorAudioNode.connect(this.GetAudioContext().destination);
+
+        this.inputStreamAudioNode.connect(this.inputStreamMonitorAudioNode);
 
         let inputStreamNode = this.GetAudioContext().createMediaStreamDestination();
         this.inputStreamAudioNode.connect(inputStreamNode);
@@ -379,6 +344,10 @@ export class UserMedia implements IUserMedia {
         // with 2 channels, the overall volume maxes out at 50%.
         // I'm not sure whether this is a browser bug or expected.
         this.inputGainNode.gain.value = this.inputAudioChannels * newSettings.AudioGain.Value;
+
+        if (this.inputStreamMonitorAudioNode != null) {
+            this.inputStreamMonitorAudioNode.gain.value = newSettings.AudioLocalListen.Value;
+        }
     }
 
     private SetCompressionParameters(newSettings: UserMediaSettings): void {
