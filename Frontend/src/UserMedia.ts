@@ -2,8 +2,10 @@ export interface IUserMedia {
     GetMediaStream(): Promise<MediaStream>;
     GetSettings(): UserMediaSettings;
     SetSettings(newSettings: UserMediaSettings): Promise<void>;
-    SampleInput(): number;
-    SampleOutput(): number;
+    SampleInputTimeDomain(): Float32Array;
+    SampleOutputTimeDomain(): Float32Array;
+    SampleInputFrequency(): Uint8Array;
+    SampleOutputFrequency(): Uint8Array;
     AddRemoteStream(tag: string, mediaStream: MediaStream): void;
     RemoveRemoteStream(tag: string): void;
     OnMediaStreamAvailable: OnMediaStreamAvailable;
@@ -306,27 +308,39 @@ export class UserMedia implements IUserMedia {
         return inputStream;
     }
 
-    private static GetSampleFromAnalyser(analyserNode: AnalyserNode): number {
+    private static GetTimeDomainDataFromAnalyser(analyserNode: AnalyserNode): Float32Array {
         if (analyserNode == null) {
-            return 0;
+            return new Float32Array(0);
         }
 
         const sampleBuffer = new Float32Array(analyserNode.fftSize);
         analyserNode.getFloatTimeDomainData(sampleBuffer);
-
-        let peak = 0;
-        sampleBuffer.forEach(function (value) {
-            peak = Math.max(peak, Math.abs(value));
-        });
-        return peak;
+        return sampleBuffer;
     }
 
-    public SampleInput(): number {
-        return UserMedia.GetSampleFromAnalyser(this.inputAnalyserNode);
+    private static GetFrequencyDataFromAnalyser(analyserNode: AnalyserNode): Uint8Array {
+        if (analyserNode == null) {
+            return new Uint8Array(0);
+        }
+
+        const sampleBuffer = new Uint8Array(analyserNode.frequencyBinCount);
+        analyserNode.getByteFrequencyData(sampleBuffer);
+        return sampleBuffer;
     }
 
-    public SampleOutput(): number {
-        return UserMedia.GetSampleFromAnalyser(this.outputAnalyserNode);
+    public SampleInputTimeDomain(): Float32Array {
+        return UserMedia.GetTimeDomainDataFromAnalyser(this.inputAnalyserNode);
+    }
+
+    public SampleOutputTimeDomain(): Float32Array {
+        return UserMedia.GetTimeDomainDataFromAnalyser(this.outputAnalyserNode);
+    }
+
+    public SampleInputFrequency(): Uint8Array {
+        return UserMedia.GetFrequencyDataFromAnalyser(this.inputAnalyserNode);
+    }
+    public SampleOutputFrequency(): Uint8Array {
+        return UserMedia.GetFrequencyDataFromAnalyser(this.outputAnalyserNode);
     }
 
     private SetGainParameters(newSettings: UserMediaSettings): void {

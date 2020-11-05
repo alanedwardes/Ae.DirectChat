@@ -26,7 +26,7 @@ export class MainUI {
     }
 
     public initialise(): void {
-        this.drawAudioHistogram();
+        this.drawAudioVisualisations();
 
         function hideControls() {
             document.querySelectorAll(".controls").forEach(node => node.classList.add('faded'));
@@ -342,7 +342,7 @@ export class MainUI {
         this.shouldDrawVolumeHistogram = newSettings.AudioLocalMeter.Value;
 
         if (!oldShouldDrawVolumeHistogram && this.shouldDrawVolumeHistogram) {
-            this.drawAudioHistogram();
+            this.drawAudioVisualisations();
         }
     }
 
@@ -451,21 +451,58 @@ export class MainUI {
     private ouputVolumeHistogram: Array<number> = [];
 
     private shouldDrawVolumeHistogram: boolean = true;
-    public drawAudioHistogram() {
+
+    public sampleVolume(sampleBuffer: Float32Array): number {
+        let peak = 0;
+        sampleBuffer.forEach(function (value) {
+            peak = Math.max(peak, Math.abs(value));
+        });
+        return peak;
+    }
+
+    public drawAudioVisualisations() {
         if (!this.shouldDrawVolumeHistogram) {
             return;
         }
 
-        window.requestAnimationFrame(() => this.drawAudioHistogram());
+        window.requestAnimationFrame(() => this.drawAudioVisualisations());
 
         let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
+        let context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
 
-        this.inputVolumeHistogram.unshift(this.userMedia.SampleInput());
+        this.drawAudioHistogram(canvas, context);
+        this.drawAudioOscilloscope(canvas, context);
+    }
+
+    public drawAudioOscilloscope(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
+        let inputSampleBuffer = this.userMedia.SampleInputFrequency();
+
+        context.fillStyle = "rgba(0, 0, 255, 0.5)";
+
+        const barWidth = (canvas.width / inputSampleBuffer.length);
+        let posX = 0;
+        for (let i = 0; i < inputSampleBuffer.length; i++) {
+            const frequencyAmplitude = inputSampleBuffer[i] / 255;
+            const barHeight = frequencyAmplitude * canvas.height;
+            context.fillRect(posX, canvas.height - barHeight, barWidth, barHeight);
+            posX += barWidth;
+        }
+    }
+
+    public drawAudioHistogram(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
+
+        let inputSampleBuffer = this.userMedia.SampleInputTimeDomain();
+        let outputSampleBuffer = this.userMedia.SampleOutputTimeDomain();
+
+
+
+        this.inputVolumeHistogram.unshift(this.sampleVolume(inputSampleBuffer));
         if (this.inputVolumeHistogram.length > canvas.width) {
             this.inputVolumeHistogram.pop();
         }
 
-        this.ouputVolumeHistogram.unshift(this.userMedia.SampleOutput());
+        this.ouputVolumeHistogram.unshift(this.sampleVolume(outputSampleBuffer));
         if (this.ouputVolumeHistogram.length > canvas.width) {
             this.ouputVolumeHistogram.pop();
         }
@@ -474,8 +511,6 @@ export class MainUI {
         if (audioControls.classList.contains("hidden")) {
             return;
         }
-
-        let context = canvas.getContext("2d");
 
         context.clearRect(0, 0, canvas.width, canvas.height);
 
