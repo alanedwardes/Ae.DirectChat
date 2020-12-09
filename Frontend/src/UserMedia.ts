@@ -102,7 +102,7 @@ class UserMediaSettings implements IUserMediaSettings {
 
     public AudioEnabled: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio", null, "Basic Audio", false);
     public AudioLocalMeter: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(true, "Enable Audio Meter", null, "Basic Audio", false);
-    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(1, 5, 0.5, 1, "Input Gain", "The amount of amplification to add to your microphone", "Basic Audio", false);
+    public AudioGain: UserMediaSettingsRange = new UserMediaSettingsRange(0.5, 5, 0.5, 1, "Input Gain", "The amount of amplification to add to your microphone", "Basic Audio", false);
     public AudioLocalListen: UserMediaSettingsRange = new UserMediaSettingsRange(0, 1, 0.05, 0, "Self Listen Volume", "Allow you to hear your own microphone, as the other attendees will hear it", "Advanced Audio", false);
     public AudioEchoCancellation: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Echo Cancellation", "If you're using speakers, this will stop the other attendees from hearing themselves", "Advanced Audio", false);
     public AudioAutoGainControl: UserMediaSetting<boolean> = new UserMediaSetting<boolean>(false, "Enable Auto Gain", "Enable automatic volume control", "Advanced Audio", false);
