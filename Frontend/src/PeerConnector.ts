@@ -1,167 +1,89 @@
+import * as SimplePeer from "simple-peer";
+
 export interface IPeerConnector {
+    Signal(signalData: SimplePeer.SignalData): void;
     Shutdown(): void;
     StartLocalStream(stream: MediaStream): void;
-    GetStatistics(): Promise<RTCStatsReport>;
-    AcceptAnswer(answer: RTCSessionDescriptionInit): Promise<void>;
-    AcceptOffer(offer: RTCSessionDescriptionInit): Promise<void>;
-    AddRemoteCandidates(candidates: RTCIceCandidate[]): Promise<void>;
-    OnHasIceCandidates: OnHasIceCandidatesDelegate;
-    OnHasStreams: OnHasStreamsDelegate;
-    OnHasOffer: OnHasOfferDelegate;
-    OnAcceptedOffer: OnAcceptedOfferDelegate;
     OnConnectionChanged: OnConnectionChangedDelegate;
+    OnSendMessage: OnSendMessage;
+    OnHasStream: OnHasStreamDelegate;
+    OnClose: OnCloseDelegate;
 }
 
-interface OnHasStreamsDelegate {
-    (streams: readonly MediaStream[]): void;
+interface OnCloseDelegate {
+    (): void;
 }
 
-interface OnHasIceCandidatesDelegate {
-    (candidates: readonly RTCIceCandidate[]): void;
+interface OnHasStreamDelegate {
+    (streams: MediaStream): void;
 }
 
-interface OnHasOfferDelegate {
-    (offer: RTCSessionDescription): void;
-}
-
-interface OnAcceptedOfferDelegate {
-    (offer: RTCSessionDescription): void;
-}
-
-export enum ConnectionChangeType {
-    Ice,
-    RTC,
-    Signal
-}
-
-export class ConnectionChange {
-    constructor(Type: ConnectionChangeType, State: string) {
-       this.Type = Type;
-       this.State = State;
-    }
-
-    readonly Type: ConnectionChangeType;
-    readonly State: string;
+interface OnSendMessage {
+    (payload: any, type: string): void;
 }
 
 export interface OnConnectionChangedDelegate {
-    (change: ConnectionChange): void;
+    (change: string): void;
 }
 
 export class PeerConnector implements IPeerConnector {
-    private connector: RTCPeerConnection;
-    private localCandidates: RTCIceCandidate[] = new Array<RTCIceCandidate>();
-    private remoteCandidates: RTCIceCandidate[] = new Array<RTCIceCandidate>();
-    private readonly shouldOffer: boolean;
+    private connector: SimplePeer.Instance;
 
-    public OnHasIceCandidates: OnHasIceCandidatesDelegate;
-    public OnHasStreams: OnHasStreamsDelegate;
-    public OnHasOffer: OnHasOfferDelegate;
-    public OnAcceptedOffer: OnAcceptedOfferDelegate;
+    public OnHasStream: OnHasStreamDelegate;
     public OnConnectionChanged: OnConnectionChangedDelegate;
+    public OnClose: OnCloseDelegate;
 
-    public constructor(shouldOffer : boolean) {
-        this.shouldOffer = shouldOffer;
-        this.shouldOffer;
-        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-        this.connector = new RTCPeerConnection(configuration);
+    public OnSendMessage: OnSendMessage;
 
-        this.connector.onconnectionstatechange = () => {
-            this.OnConnectionChanged(new ConnectionChange(ConnectionChangeType.RTC, this.connector.connectionState));
-        }
-
-        this.connector.oniceconnectionstatechange = () => {
-            this.OnConnectionChanged(new ConnectionChange(ConnectionChangeType.Ice, this.connector.iceConnectionState));
-        }
-
-        this.connector.onsignalingstatechange = () => {
-            this.OnConnectionChanged(new ConnectionChange(ConnectionChangeType.Signal, this.connector.signalingState));
-        }
-
-        this.connector.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
-            if (event.candidate == null) {
-                this.OnHasIceCandidates(this.localCandidates);
-                this.localCandidates = new Array<RTCIceCandidate>();
-            }
-            else {
-                this.localCandidates.push(event.candidate);
-            }
-        }
-
-        this.connector.onnegotiationneeded = async () => {
-            if (!this.shouldOffer && this.connector.localDescription == null && this.connector.remoteDescription == null) {
-                console.log("Ignoring onnegotiationneeded since this connector shouldn't offer");
-                return;
-            }
-
-            try {
-                await this.connector.setLocalDescription(null);
-                console.log("OnHasOffer");
-                this.OnHasOffer(this.connector.localDescription);
-            } catch (err) {
-                console.error(err);
-            }
+    public constructor(shouldOffer: boolean) {
+        const options: SimplePeer.Options = {
+            initiator: shouldOffer
         };
 
-        this.connector.ontrack = (ev: RTCTrackEvent) => {
-            this.OnHasStreams(ev.streams);
-        };
-    }
+        this.connector = new SimplePeer(options);
 
-    public Shutdown() : void {
-        this.connector.close();
-    }
+        this.connector.on('signal', (data: SimplePeer.SignalData) => {
+            this.OnSendMessage(data, data.type);
+        });
 
-    public async GetStatistics(): Promise<RTCStatsReport> {
-        return await this.connector.getStats();
-    }
+        this.connector.on('stream', (stream: MediaStream) => {
+            this.OnHasStream(stream);
+            this.OnConnectionChanged('got stream ' + stream.id);
+        });
 
-    public async AddRemoteCandidates(candidates: RTCIceCandidate[]): Promise<void> {
-        candidates.forEach(async (candidate: RTCIceCandidate) => {
-            try {
-                await this.connector.addIceCandidate(candidate);
-            }
-            catch (err) {
-                this.remoteCandidates.push(candidate);
-            }
+        this.connector.on('close', () => {
+            this.OnClose();
         });
     }
 
-    public async AcceptAnswer(answer: RTCSessionDescriptionInit): Promise<void> {
-        console.log("AcceptAnswer");
-        await this.connector.setRemoteDescription(answer);
+    public Signal(signalData: SimplePeer.SignalData): void {
+        this.connector.signal(signalData);
     }
 
-    public async AcceptOffer(offer: RTCSessionDescriptionInit): Promise<void> {
-        console.log("AcceptOffer");
-        await this.connector.setRemoteDescription(offer);
-
-        await this.connector.setLocalDescription(await this.connector.createAnswer());
-
-        this.remoteCandidates.forEach(async (candidate: RTCIceCandidate) => {
-            await this.connector.addIceCandidate(candidate);
-        });
-        this.remoteCandidates = new Array<RTCIceCandidate>();
-
-        this.OnAcceptedOffer(this.connector.localDescription);
+    public Shutdown(): void {
+        this.connector.destroy();
     }
 
-    private readonly rtpSenders: RTCRtpSender[] = new Array<RTCRtpSender>();
+    private localStream: MediaStream = null;
+    private localTracks: MediaStreamTrack[] = [];
 
     public StartLocalStream(stream: MediaStream): void {
         this.StopLocalStream();
 
-        stream.getTracks().forEach((track: MediaStreamTrack) => {
-            console.log("adding track");
-            this.rtpSenders.push(this.connector.addTrack(track, stream));
+        this.localStream = stream;
+        this.localTracks = stream.getTracks();
+
+        this.localTracks.forEach((track: MediaStreamTrack) => {
+            this.connector.addTrack(track, this.localStream);
         });
     }
 
     private StopLocalStream(): void {
-        this.rtpSenders.forEach((sender: RTCRtpSender) => {
-            console.log("removing track");
-            this.connector.removeTrack(sender);
+        this.localTracks.forEach(track => {
+            this.connector.removeTrack(track, this.localStream);
         });
-        this.rtpSenders.slice(this.rtpSenders.length - 1);
+
+        this.localStream = null;
+        this.localTracks = [];
     }
 }

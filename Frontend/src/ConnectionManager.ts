@@ -1,10 +1,14 @@
 import { IBroker, Envelope } from "./Broker";
-import { IPeerConnector, ConnectionChange } from "./PeerConnector";
+import { IPeerConnector } from "./PeerConnector";
 import { ISessionConfig } from "./SessionConfig";
 import { IPeerConnectorFactory } from "./PeerConnectorFactory";
 
-interface OnHasStreamsDelegate {
-    (fromId: string, streams: readonly MediaStream[]): void;
+interface OnCloseDelegate {
+    (clientId: string): void;
+}
+
+interface OnHasStreamDelegate {
+    (fromId: string, stream: MediaStream): void;
 }
 
 interface OnNeedLocalStreamDelegate {
@@ -12,7 +16,7 @@ interface OnNeedLocalStreamDelegate {
 }
 
 interface OnClientConnectionChangedDelegate {
-    (clientId: string, change: ConnectionChange): void;
+    (clientId: string, change: string): void;
 }
 
 export class ClientLocation {
@@ -29,10 +33,11 @@ interface OnClientLocationDelegate {
 
 export class ConnectionManager {
     private readonly broker: IBroker;
-    public OnHasStreams: OnHasStreamsDelegate;
+    public OnHasStream: OnHasStreamDelegate;
     public OnNeedLocalStream: OnNeedLocalStreamDelegate;
     public OnConnectionChanged: OnClientConnectionChangedDelegate;
     public OnLocation: OnClientLocationDelegate;
+    public OnClose: OnCloseDelegate;
 
     private connectors: { [fromId: string]: IPeerConnector; } = {};
     private readonly sessionConfig: ISessionConfig;
@@ -67,29 +72,21 @@ export class ConnectionManager {
 
         peerConnector.OnConnectionChanged = change => {
             this.OnConnectionChanged(fromId, change);
-            
-            // If any change type is failed, clean up
-            if (change.State == "failed") {
-                console.warn("Deleting connector from " + fromId);
-                this.connectors[fromId].Shutdown();
-                delete this.connectors[fromId];
-            }
         };
 
-        peerConnector.OnHasIceCandidates = candidates => {
-            this.broker.Send(candidates, "candidates", fromId);
-        }
-
-        peerConnector.OnHasStreams = streams => {
-            this.OnHasStreams(fromId, streams);
+        peerConnector.OnClose = () => {
+            console.warn("Deleting connector from " + fromId);
+            this.connectors[fromId].Shutdown();
+            delete this.connectors[fromId];
+            this.OnClose(fromId);
         };
 
-        peerConnector.OnHasOffer = offer => {
-            this.broker.Send(offer, "offer", fromId);
-        }
+        peerConnector.OnHasStream = stream => {
+            this.OnHasStream(fromId, stream);
+        };
 
-        peerConnector.OnAcceptedOffer = offer => {
-            this.broker.Send(offer, "accept", fromId);
+        peerConnector.OnSendMessage = (payload: any, type: string) => {
+            this.broker.Send(payload, type, fromId);
         };
 
         peerConnector.StartLocalStream(this.OnNeedLocalStream());
@@ -103,6 +100,7 @@ export class ConnectionManager {
 
         this.CreateConnector(message.FromId);
 
+        /*
         if (message.Type == "offer") {
             this.connectors[message.FromId].AcceptOffer(message.Data);
         }
@@ -111,7 +109,7 @@ export class ConnectionManager {
         }
         if (message.Type == "candidates") {
             this.connectors[message.FromId].AddRemoteCandidates(message.Data);
-        }
+        }*/
         if (message.Type == "location") {
             let location: ClientLocation = new ClientLocation();
             location.CityName = message.Data["cityName"];
@@ -121,8 +119,14 @@ export class ConnectionManager {
             location.SubdivisionName = message.Data["subdivisionName"];
             this.OnLocation(message.FromId, location);
         }
-        if (message.Type == "discover") {
+        else if (message.Type == "discover") {
             this.broker.Send({}, "acknowledge", message.FromId);
+        }
+        else if (message.Type == 'acknowledge') {
+            // 
+        }
+        else {
+            this.connectors[message.FromId].Signal(message.Data);
         }
     }
 }

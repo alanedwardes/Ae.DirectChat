@@ -1,6 +1,5 @@
 import { ChatApp } from "./ChatApp";
 import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia";
-import { ConnectionChangeType } from "./PeerConnector";
 
 class RemoteMedia {
     public Element: HTMLDivElement;
@@ -145,35 +144,19 @@ export class MainUI {
         this.chatApp.OnConnectionChanged = (clientId, change) => {
             let clientNode = this.getClientNode(clientId);
 
-            let statusNode: HTMLSpanElement = clientNode.querySelector('span[data-status-type="' + change.Type.toString() + '"]');
+            let statusNode: HTMLSpanElement = clientNode.querySelector('span.status');
             if (statusNode === null) {
                 statusNode = document.createElement("span");
                 statusNode.classList.add("status");
-                statusNode.innerHTML = "pending";
-
-                switch (change.Type) {
-                    case ConnectionChangeType.Ice:
-                        statusNode.classList.add("ice");
-                        break;
-                    case ConnectionChangeType.Signal:
-                        statusNode.classList.add("signal");
-                        break;
-                    case ConnectionChangeType.RTC:
-                        statusNode.classList.add("rtc");
-                        break;
-                }
-
-                statusNode.setAttribute("data-status-type", change.Type.toString());
                 clientNode.appendChild(statusNode);
             }
 
-            statusNode.innerHTML = change.State;
-
-            if ((change.Type == ConnectionChangeType.Ice && change.State == "failed") /* Firefox */ ||
-                (change.Type == ConnectionChangeType.Signal && change.State == "closed") /* Chrome */) {
-                this.clientDisconnected(clientId);
-            }
+            statusNode.innerHTML = change;
         }
+
+        this.chatApp.OnClose = clientId => {
+            this.clientDisconnected(clientId);
+        };
 
         this.chatApp.Start();
 
@@ -278,7 +261,7 @@ export class MainUI {
     }
 
     public logMessage(messageText: string, messageType: string) {
-        let timeoutHandle: number;
+        let timeoutHandle: NodeJS.Timeout;
         if (messageType != "fatal") {
             timeoutHandle = setTimeout(() => {
                 list.removeChild(container);

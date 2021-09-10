@@ -3,10 +3,13 @@ import { Broker, IBroker } from "./Broker";
 import { ConnectionManager, ClientLocation } from "./ConnectionManager";
 import { ISessionConfig } from "./SessionConfig"
 import { PeerConnectorFactory } from "./PeerConnectorFactory";
-import { ConnectionChange } from "./PeerConnector";
+
+interface OnCloseDelegate {
+    (clientId: string): void;
+}
 
 interface OnConnectionChangedDelegate {
-    (connectionId: string, change: ConnectionChange): void;
+    (connectionId: string, change: string): void;
 }
 
 interface OnLocalStreamDelegate {
@@ -42,6 +45,7 @@ export class ChatApp {
     public OnConnectionChanged: OnConnectionChangedDelegate;
     public OnMessage: OnMessage;
     public OnLocation: OnClientLocation;
+    public OnClose: OnCloseDelegate;
 
     public async Start(): Promise<void> {
         this.userMedia.OnMediaStreamAvailable = mediaStream => {
@@ -69,11 +73,10 @@ export class ChatApp {
         this.connectionManager = new ConnectionManager(broker, this.sessionConfig, peerConnectorFactory);
         this.connectionManager.OnLocation = (clientId, location) => this.OnLocation(clientId, location);
         this.connectionManager.OnConnectionChanged = (clientId, change) => this.OnConnectionChanged(clientId, change);
+        this.connectionManager.OnClose = (clientId) => this.OnClose(clientId);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
-        this.connectionManager.OnHasStreams = (clientId, streams) => {
-            streams.forEach(stream => {
-                this.OnRemoteStream(clientId, stream);
-            });
+        this.connectionManager.OnHasStream = (clientId, stream) => {
+            this.OnRemoteStream(clientId, stream);
         };
 
         await broker.Open();

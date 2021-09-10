@@ -11,10 +11,10 @@ export class Entry {
             return;
         }
 
-        let isLocal = !window.location.protocol.startsWith("http");
+        let isNotRewriteUrl = window.location.pathname.endsWith('/index.html');
 
         let roomId;
-        if (isLocal) {
+        if (isNotRewriteUrl) {
             roomId = window.location.hash.replace('#', '');
         }
         else {
@@ -24,7 +24,7 @@ export class Entry {
         let sessionConfig = new SessionConfig(roomId);
 
         if (roomId.length == 0) {
-            if (isLocal) {
+            if (isNotRewriteUrl) {
                 window.history.replaceState(null, document.title, '#' + sessionConfig.RoomId);
             }
             else {

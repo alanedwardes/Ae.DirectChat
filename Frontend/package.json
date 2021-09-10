@@ -6,7 +6,9 @@
         "webpack-cli": "^3.3.12"
     },
     "dependencies": {
+        "@types/simple-peer": "^9.11.2",
         "@types/uuid": "^7.0.4",
+        "simple-peer": "^9.11.0",
         "uuid": "^7.0.3"
     }
 }
