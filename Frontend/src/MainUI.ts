@@ -151,7 +151,7 @@ export class MainUI {
                 clientNode.appendChild(statusNode);
             }
 
-            statusNode.innerHTML = change;
+            statusNode.textContent = change;
         }
 
         this.chatApp.OnClose = clientId => {
