@@ -51,7 +51,13 @@ export class PeerConnector implements IPeerConnector {
             this.OnConnectionChanged('got stream ' + stream.id);
         });
 
+        this.connector.on('error', (error: Error) => {
+            this.OnConnectionChanged('error: ' + error.name);
+            this.OnClose();
+        });
+
         this.connector.on('close', () => {
+            this.OnConnectionChanged('lost');
             this.OnClose();
         });
     }

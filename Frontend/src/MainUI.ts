@@ -155,7 +155,7 @@ export class MainUI {
         }
 
         this.chatApp.OnClose = clientId => {
-            this.clientDisconnected(clientId);
+            setTimeout(() => this.clientDisconnected(clientId), 15000);
         };
 
         this.chatApp.Start();
