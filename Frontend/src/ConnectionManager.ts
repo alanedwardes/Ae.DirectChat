@@ -90,11 +90,6 @@ export class ConnectionManager {
         this.CreateConnector(message.FromId);
 
         switch (message.Type) {
-            case 'candidate':
-            case 'answer':
-            case 'offer':
-                this.connectors[message.FromId].Signal(message.Data);
-                break;
             case 'location':
                 this.ProcessLocation(message);
                 break;
@@ -105,7 +100,7 @@ export class ConnectionManager {
                 // no-op
                 break;
             default:
-                console.warn('Unhandled message', message.Type);
+                this.connectors[message.FromId].Signal(message.Data);
                 break;
         }
     }
