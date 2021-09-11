@@ -52,7 +52,7 @@ export class PeerConnector implements IPeerConnector {
         });
 
         this.connector.on('error', (error: Error) => {
-            this.OnConnectionChanged('error: ' + error.name);
+            this.OnConnectionChanged('error: ' + error.message);
             this.Shutdown();
         });
 
