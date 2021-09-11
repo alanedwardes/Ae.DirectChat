@@ -79,6 +79,6 @@ export class ChatApp {
 
         await broker.Open();
 
-        this.OnMessage("✔️ Connected! Share this link:<br/><a href='" + window.location + "'>" + window.location + "</a>", "success");
+        this.OnMessage("✔️ Connected! Share the URL to allow others to join.", "success");
     }
 }
