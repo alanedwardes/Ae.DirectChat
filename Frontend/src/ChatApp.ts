@@ -75,9 +75,7 @@ export class ChatApp {
         this.connectionManager.OnConnectionChanged = (clientId, change) => this.OnConnectionChanged(clientId, change);
         this.connectionManager.OnClose = (clientId) => this.OnClose(clientId);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
-        this.connectionManager.OnHasStream = (clientId, stream) => {
-            this.OnRemoteStream(clientId, stream);
-        };
+        this.connectionManager.OnHasStream = (clientId, stream) => this.OnRemoteStream(clientId, stream);
 
         await broker.Open();
 

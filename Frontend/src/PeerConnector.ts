@@ -93,17 +93,11 @@ export class PeerConnector implements IPeerConnector {
 
         this.localStream = stream;
         this.localTracks = stream.getTracks();
-
-        this.localTracks.forEach((track: MediaStreamTrack) => {
-            this.connector.addTrack(track, this.localStream);
-        });
+        this.localTracks.forEach(track => this.connector.addTrack(track, this.localStream));
     }
 
     private StopStream(): void {
-        this.localTracks.forEach(track => {
-            this.connector.removeTrack(track, this.localStream);
-        });
-
+        this.localTracks.forEach(track => this.connector.removeTrack(track, this.localStream));
         this.localStream = null;
         this.localTracks = [];
     }
