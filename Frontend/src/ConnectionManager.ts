@@ -55,7 +55,7 @@ export class ConnectionManager {
 
         for (let clientId in this.connectors) {
             if (this.connectors.hasOwnProperty(clientId)) {
-                this.connectors[clientId].StartLocalStream(localStream);
+                this.connectors[clientId].SendStream(localStream);
             }
         }
     }
@@ -68,65 +68,55 @@ export class ConnectionManager {
         const shouldOffer: boolean = fromId < this.sessionConfig.AttendeeId;
 
         const peerConnector = this.peerConnectorFactory.CreatePeerConnector(shouldOffer);
-        console.log("Creating peer connector for " + fromId + " (shouldOffer: " + shouldOffer + ")");
-
-        peerConnector.OnConnectionChanged = change => {
-            this.OnConnectionChanged(fromId, change);
-        };
-
-        peerConnector.OnClose = () => {
-            console.warn("Deleting connector from " + fromId);
-            this.connectors[fromId].Shutdown();
-            delete this.connectors[fromId];
-            this.OnClose(fromId);
-        };
-
-        peerConnector.OnHasStream = stream => {
-            this.OnHasStream(fromId, stream);
-        };
-
-        peerConnector.OnSendMessage = (payload: any, type: string) => {
-            this.broker.Send(payload, type, fromId);
-        };
-
-        peerConnector.StartLocalStream(this.OnNeedLocalStream());
+        peerConnector.OnConnectionChanged = change => this.OnConnectionChanged(fromId, change);
+        peerConnector.OnClose = () => this.ProcessClose(fromId);
+        peerConnector.OnHasStream = stream => this.OnHasStream(fromId, stream);
+        peerConnector.OnSendMessage = (payload: any, type: string) => this.broker.Send(payload, type, fromId);
+        peerConnector.SendStream(this.OnNeedLocalStream());
         this.connectors[fromId] = peerConnector;
     }
 
+    private ProcessClose(fromId: string) {
+        delete this.connectors[fromId];
+        this.OnClose(fromId);
+    };
+
     private OnMessage(message: Envelope) {
         if (message.FromId == this.sessionConfig.AttendeeId) {
+            // Ignore self messages
             return;
         }
 
         this.CreateConnector(message.FromId);
 
-        /*
-        if (message.Type == "offer") {
-            this.connectors[message.FromId].AcceptOffer(message.Data);
+        switch (message.Type) {
+            case 'candidate':
+            case 'answer':
+            case 'offer':
+                this.connectors[message.FromId].Signal(message.Data);
+                break;
+            case 'location':
+                this.ProcessLocation(message);
+                break;
+            case 'discover':
+                this.broker.Send({}, 'acknowledge', message.FromId);
+                break;
+            case 'acknowledge':
+                // no-op
+                break;
+            default:
+                console.warn('Unhandled message', message.Type);
+                break;
         }
-        if (message.Type == "accept") {
-            this.connectors[message.FromId].AcceptAnswer(message.Data);
-        }
-        if (message.Type == "candidates") {
-            this.connectors[message.FromId].AddRemoteCandidates(message.Data);
-        }*/
-        if (message.Type == "location") {
-            let location: ClientLocation = new ClientLocation();
-            location.CityName = message.Data["cityName"];
-            location.CountryName = message.Data["countryName"];
-            location.CountryCode = message.Data["countryCode"];
-            location.ContinentName = message.Data["continentName"];
-            location.SubdivisionName = message.Data["subdivisionName"];
-            this.OnLocation(message.FromId, location);
-        }
-        else if (message.Type == "discover") {
-            this.broker.Send({}, "acknowledge", message.FromId);
-        }
-        else if (message.Type == 'acknowledge') {
-            // 
-        }
-        else {
-            this.connectors[message.FromId].Signal(message.Data);
-        }
+    }
+
+    private ProcessLocation(message: Envelope) {
+        let location: ClientLocation = new ClientLocation();
+        location.CityName = message.Data["cityName"];
+        location.CountryName = message.Data["countryName"];
+        location.CountryCode = message.Data["countryCode"];
+        location.ContinentName = message.Data["continentName"];
+        location.SubdivisionName = message.Data["subdivisionName"];
+        this.OnLocation(message.FromId, location);
     }
 }

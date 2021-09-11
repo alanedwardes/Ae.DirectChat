@@ -2,8 +2,7 @@ import * as SimplePeer from "simple-peer";
 
 export interface IPeerConnector {
     Signal(signalData: SimplePeer.SignalData): void;
-    Shutdown(): void;
-    StartLocalStream(stream: MediaStream): void;
+    SendStream(stream: MediaStream): void;
     OnConnectionChanged: OnConnectionChangedDelegate;
     OnSendMessage: OnSendMessage;
     OnHasStream: OnHasStreamDelegate;
@@ -28,6 +27,7 @@ export interface OnConnectionChangedDelegate {
 
 export class PeerConnector implements IPeerConnector {
     private connector: SimplePeer.Instance;
+    private isClosed: boolean;
 
     public OnHasStream: OnHasStreamDelegate;
     public OnConnectionChanged: OnConnectionChangedDelegate;
@@ -53,28 +53,43 @@ export class PeerConnector implements IPeerConnector {
 
         this.connector.on('error', (error: Error) => {
             this.OnConnectionChanged('error: ' + error.name);
-            this.OnClose();
+            this.Shutdown();
         });
 
         this.connector.on('close', () => {
             this.OnConnectionChanged('lost');
-            this.OnClose();
+            this.Shutdown();
         });
     }
 
     public Signal(signalData: SimplePeer.SignalData): void {
+        if (this.isClosed) {
+            return;
+        }
+
         this.connector.signal(signalData);
     }
 
-    public Shutdown(): void {
+    private Shutdown(): void {
+        if (this.isClosed) {
+            return;
+        }
+
+        this.isClosed = true;
+        this.connector.removeAllListeners();
         this.connector.destroy();
+        this.OnClose();
     }
 
     private localStream: MediaStream = null;
     private localTracks: MediaStreamTrack[] = [];
 
-    public StartLocalStream(stream: MediaStream): void {
-        this.StopLocalStream();
+    public SendStream(stream: MediaStream): void {
+        if (this.isClosed) {
+            return;
+        }
+
+        this.StopStream();
 
         this.localStream = stream;
         this.localTracks = stream.getTracks();
@@ -84,7 +99,7 @@ export class PeerConnector implements IPeerConnector {
         });
     }
 
-    private StopLocalStream(): void {
+    private StopStream(): void {
         this.localTracks.forEach(track => {
             this.connector.removeTrack(track, this.localStream);
         });
