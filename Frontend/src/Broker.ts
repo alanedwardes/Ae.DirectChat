@@ -32,6 +32,9 @@ export class Broker implements IBroker {
         this.socket.onmessage = (event: MessageEvent) => this.OnMessageInternal(event);
         this.socket.onerror = (event: ErrorEvent) => console.error(event);
         this.socket.onclose = () => this.Open();
+        setInterval(() => {
+            this.Send(this.sessionConfig.SessionId, "ping", this.sessionConfig.RoomId);
+        }, 30_000);
         return new Promise(resolve => this.socket.onopen = () => {
             this.Send(this.sessionConfig.SessionId, "discover", this.sessionConfig.RoomId);
             resolve();
