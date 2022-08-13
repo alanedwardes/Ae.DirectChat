@@ -6,6 +6,15 @@
     <title>Direct Chat - Alan Edwardes</title>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
+	<script>
+		//// HACK: one of the dependencies needs this
+		window.process = {
+			nextTick: function(callback, arg1, arg2, arg3, arg4, arg5, arg6) {
+				console.log("process.nextTick polyfill called");
+				callback(arg1, arg2, arg3, arg4, arg5, arg6);
+			}
+		}
+	</script>
 </head>
 
 <body>
