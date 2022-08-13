@@ -222,6 +222,7 @@ export class UserMedia implements IUserMedia {
         }
 
         this.RemoveRemoteStream(tag);
+        console.log("Got media stream", mediaStream);
         this.remoteStreams[tag] = this.GetAudioContext().createMediaStreamSource(mediaStream);
         this.remoteStreams[tag].connect(this.outputAnalyserNode);
     }
