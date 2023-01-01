@@ -1,5 +1,5 @@
 # Ae.DirectChat
-A peer to peer chat application built with WebRTC, available on https://chat.alanedwardes.com/
+A peer to peer chat application built with WebRTC, available on https://chat.alan.gdn/
 
 ## Features
 * Serverless signalling channel built on WebSockets, AWS Lambda and AWS API Gateway
