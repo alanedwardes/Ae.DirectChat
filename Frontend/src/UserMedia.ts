@@ -221,6 +221,11 @@ export class UserMedia implements IUserMedia {
             this.outputAnalyserNode.connect(this.GetAudioContext().destination);
         }
 
+        if (mediaStream.getAudioTracks().length === 0) {
+            console.error("Ignoring remote stream with zero audio tracks");
+            return;
+        }
+
         this.RemoveRemoteStream(tag);
         console.log("Got media stream", mediaStream);
         this.remoteStreams[tag] = this.GetAudioContext().createMediaStreamSource(mediaStream);
