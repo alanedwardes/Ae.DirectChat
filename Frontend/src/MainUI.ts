@@ -18,10 +18,10 @@ export class MainUI {
         this.userMedia = userMedia;
 
         this.joinSound = document.createElement("audio");
-        this.joinSound.src = "https://alan.gdn/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
+        this.joinSound.src = "https://s.alanedwardes.com/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
 
         this.leaveSound = document.createElement("audio");
-        this.leaveSound.src = "https://alan.gdn/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
+        this.leaveSound.src = "https://s.alanedwardes.com/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
     }
 
     public initialise(): void {
