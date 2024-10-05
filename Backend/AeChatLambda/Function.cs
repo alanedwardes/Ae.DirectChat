@@ -113,6 +113,9 @@ namespace AeChatLambda
                         Data = new MemoryStream(Encoding.UTF8.GetBytes("{\"type\":\"pong\"}"))
                     });
                     break;
+                case "disconnect":
+                    await gateway.DeleteConnectionAsync(new DeleteConnectionRequest { ConnectionId = request.RequestContext.ConnectionId });
+                    break;
                 default:
                     await SendTo(envelope);
                     break;
