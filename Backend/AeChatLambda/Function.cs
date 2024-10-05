@@ -106,6 +106,13 @@ namespace AeChatLambda
                     await SendTo(envelope);
                     await BroadcastLocation(envelope, request);
                     break;
+                case "ping":
+                    await gateway.PostToConnectionAsync(new PostToConnectionRequest
+                    {
+                        ConnectionId = request.RequestContext.ConnectionId,
+                        Data = new MemoryStream(Encoding.UTF8.GetBytes("{\"type\":\"pong\"}"))
+                    });
+                    break;
                 default:
                     await SendTo(envelope);
                     break;
