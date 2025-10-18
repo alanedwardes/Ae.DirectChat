@@ -3,6 +3,7 @@ import { Broker, IBroker } from "./Broker";
 import { ConnectionManager, ClientLocation } from "./ConnectionManager";
 import { ISessionConfig } from "./SessionConfig"
 import { PeerConnectorFactory } from "./PeerConnectorFactory";
+import { formatTraffic } from "./LogFormatter";
 
 interface OnCloseDelegate {
     (clientId: string): void;
@@ -75,8 +76,9 @@ export class ChatApp {
         (broker as any).OnTraffic = (direction: string, data: any) => {
             if (this.OnLog) {
                 try {
-                    const summary = typeof data === "string" ? data : JSON.stringify(data);
-                    this.OnLog("[ws " + direction + "] " + summary);
+                    const line = formatTraffic(direction as "in" | "out", data);
+                    this.OnLog(line);
+                    console.debug("[ws raw]", direction, data);
                 } catch {
                     this.OnLog("[ws " + direction + "] (unserializable)");
                 }
