@@ -28,6 +28,10 @@ interface OnClientLocation {
     (clientId: string, location: ClientLocation): void;
 }
 
+interface OnLogDelegate {
+    (line: string): void;
+}
+
 export class ChatApp {
     private readonly sessionConfig: ISessionConfig;
 
@@ -46,6 +50,7 @@ export class ChatApp {
     public OnMessage: OnMessage;
     public OnLocation: OnClientLocation;
     public OnClose: OnCloseDelegate;
+    public OnLog: OnLogDelegate;
 
     public async Start(): Promise<void> {
         this.userMedia.OnMediaStreamAvailable = mediaStream => {
@@ -67,6 +72,16 @@ export class ChatApp {
         }
 
         const broker: IBroker = new Broker(this.sessionConfig);
+        (broker as any).OnTraffic = (direction: string, data: any) => {
+            if (this.OnLog) {
+                try {
+                    const summary = typeof data === "string" ? data : JSON.stringify(data);
+                    this.OnLog("[ws " + direction + "] " + summary);
+                } catch {
+                    this.OnLog("[ws " + direction + "] (unserializable)");
+                }
+            }
+        };
 
         let peerConnectorFactory = new PeerConnectorFactory();
 

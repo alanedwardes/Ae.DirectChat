@@ -46,6 +46,14 @@ export class PeerConnector implements IPeerConnector {
             this.OnSendMessage(data, data.type);
         });
 
+        this.connector.on('connect', () => {
+            this.OnConnectionChanged('connected');
+        });
+
+        this.connector.on('data', (data: any) => {
+            this.OnConnectionChanged('data ' + (typeof data === 'string' ? data.length : 0));
+        });
+
         this.connector.on('stream', (stream: MediaStream) => {
             this.OnHasStream(stream);
             this.OnConnectionChanged('got stream ' + stream.id);

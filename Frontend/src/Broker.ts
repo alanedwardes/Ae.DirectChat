@@ -17,10 +17,15 @@ interface OnMessageDelegate {
     (message: Envelope): void;
 }
 
+interface OnTrafficDelegate {
+    (direction: string, data: any): void;
+}
+
 export class Broker implements IBroker {
     private socket: WebSocket;
 
     public OnMessage: OnMessageDelegate;
+    public OnTraffic: OnTrafficDelegate;
     private readonly sessionConfig: ISessionConfig;
     private pingIntervalHandle: number = 0;
 
@@ -76,6 +81,9 @@ export class Broker implements IBroker {
         envelope.RoomId = data["roomId"];
         envelope.Type = data["type"];
         envelope.FromId = data["fromId"];
+        if (this.OnTraffic) {
+            this.OnTraffic("in", envelope);
+        }
         this.OnMessage(envelope);
     }
 
@@ -87,6 +95,15 @@ export class Broker implements IBroker {
             type: type,
             data: JSON.stringify(payload)
         });
+        if (this.OnTraffic) {
+            this.OnTraffic("out", {
+                roomId: this.sessionConfig.RoomId,
+                toId: toId,
+                fromId: this.sessionConfig.AttendeeId,
+                type: type,
+                data: payload
+            });
+        }
         this.socket.send(serialized);
     }
 }

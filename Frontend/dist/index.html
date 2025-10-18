@@ -25,6 +25,7 @@
         <button id="videoControlsButton">📷 Video</button>
         <button id="screenControlsButton">🖥️ Screen</button>
         <button id="attendeeWindowButton">🧍 Attendees</button>
+        <button id="logWindowButton">📜 Logs</button>
     </div>
     <div style="clear:both"></div>
     <div id="audioControls" class="window">
@@ -47,6 +48,11 @@
         <button class="closeButton">✕</button>
         <h1>🧍 Attendees</h1>
         <ol id="attendeeList"></ol>
+    </div>
+    <div id="logWindow" class="window hidden">
+        <button class="closeButton">✕</button>
+        <h1>📜 Logs</h1>
+        <ol id="logList"></ol>
     </div>
     <video muted id="localVideo"></video>
     <script src="bundle.js"></script>

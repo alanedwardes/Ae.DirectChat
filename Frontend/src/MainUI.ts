@@ -50,6 +50,7 @@ export class MainUI {
         window.ontouchstart = () => ShowControls();
 
         this.chatApp.OnMessage = (messageText, messageType) => this.logMessage(messageText, messageType);
+        this.chatApp.OnLog = (line) => this.appendLog(line);
 
         if (window.location.search.startsWith('?')) {
             let settings: IUserMediaSettings = this.userMedia.GetSettings();
@@ -152,6 +153,7 @@ export class MainUI {
             }
 
             statusNode.textContent = change;
+            this.appendLog("[rtc] " + clientId.substring(0, 6) + ": " + change);
         }
 
         this.chatApp.OnClose = clientId => {
@@ -204,12 +206,26 @@ export class MainUI {
             document.querySelector('#attendeeWindow').classList.remove("hidden");
         });
 
+        document.querySelector('#logWindowButton').addEventListener('click', () => {
+            document.querySelector('#logWindow').classList.remove("hidden");
+        });
+
         document.querySelectorAll('.closeButton').forEach(element => {
             element.addEventListener('click', event => {
                 let sourceElement = <HTMLButtonElement>event.srcElement;
                 sourceElement.parentElement.classList.add("hidden");
             });
         });
+    }
+
+    public appendLog(line: string) {
+        let list = document.querySelector('#logList');
+        let item = document.createElement('li');
+        item.textContent = line;
+        list.appendChild(item);
+        while (list.childElementCount > 500) {
+            list.removeChild(list.firstElementChild);
+        }
     }
 
     public countryCodeEmoji(country: string): string {
