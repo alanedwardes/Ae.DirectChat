@@ -219,13 +219,21 @@ export class MainUI {
     }
 
     public appendLog(line: string) {
-        let list = document.querySelector('#logList');
-        let item = document.createElement('li');
-        item.textContent = line;
-        list.appendChild(item);
-        while (list.childElementCount > 500) {
-            list.removeChild(list.firstElementChild);
-        }
+		let list = document.querySelector('#logList') as HTMLOListElement;
+		let item = document.createElement('li');
+
+		const timestamp = new Date().toLocaleTimeString();
+		item.textContent = `[${timestamp}] ${line}`;
+
+		list.appendChild(item);
+		while (list.childElementCount > 500) {
+			list.removeChild(list.firstElementChild);
+		}
+
+		const logWindow = document.querySelector('#logWindow') as HTMLElement;
+		if (logWindow) {
+			logWindow.scrollTop = logWindow.scrollHeight;
+		}
     }
 
     public countryCodeEmoji(country: string): string {

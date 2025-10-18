@@ -100,6 +100,34 @@ form input[type=checkbox] {
     float: left;
 }
 
+#logWindow {
+    max-width: 512px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+#logList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 512px;
+}
+
+#logList li {
+    padding: 4px 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+#logList li:nth-child(odd) {
+    background: #3a3a3a;
+}
+
+#logList li:nth-child(even) {
+    background: #4a4a4a;
+}
+
 .closeButton {
     font-weight:bold;
     background: transparent;
