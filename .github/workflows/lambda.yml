@@ -7,10 +7,6 @@ on:
     paths:
       - 'Backend/AeChatLambda/**'
       - '.github/workflows/lambda.yml'
-  pull_request:
-    paths:
-      - 'Backend/AeChatLambda/**'
-      - '.github/workflows/lambda.yml'
   workflow_dispatch:
 
 jobs:
