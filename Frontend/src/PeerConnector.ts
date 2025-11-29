@@ -7,7 +7,6 @@ export interface IPeerConnector {
     OnSendMessage: OnSendMessage;
     OnHasStream: OnHasStreamDelegate;
     OnClose: OnCloseDelegate;
-    Destroy(): void;
 }
 
 interface OnCloseDelegate {
@@ -88,10 +87,6 @@ export class PeerConnector implements IPeerConnector {
         this.connector.removeAllListeners();
         this.connector.destroy();
         this.OnClose();
-    }
-
-    public Destroy(): void {
-        this.Shutdown();
     }
 
     private localStream: MediaStream = null;
