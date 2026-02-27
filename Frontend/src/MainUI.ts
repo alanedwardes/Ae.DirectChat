@@ -505,29 +505,24 @@ export class MainUI {
         return peak;
     }
 
-    private lastDrawTime: number = 0;
-    private readonly drawIntervalMs: number = 100; // ~10fps
-
     public drawAudioVisualisations() {
         if (!this.shouldDrawVolumeHistogram) {
             return;
         }
 
-        window.requestAnimationFrame((timestamp) => {
-            if (timestamp - this.lastDrawTime >= this.drawIntervalMs) {
-                this.lastDrawTime = timestamp;
+        window.requestAnimationFrame(() => this.drawAudioVisualisations());
 
-                const audioControls = document.getElementById("audioControls");
-                if (!audioControls.classList.contains("hidden")) {
-                    let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
-                    let context = canvas.getContext("2d");
-                    context.clearRect(0, 0, canvas.width, canvas.height);
-                    this.drawAudioHistogram(canvas, context);
-                    this.drawAudioOscilloscope(canvas, context);
-                }
-            }
-            this.drawAudioVisualisations();
-        });
+        const audioControls = document.getElementById("audioControls");
+        if (audioControls.classList.contains("hidden")) {
+            return;
+        }
+
+        let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
+        let context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        this.drawAudioHistogram(canvas, context);
+        this.drawAudioOscilloscope(canvas, context);
     }
 
     public drawAudioOscilloscope(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
