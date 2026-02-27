@@ -312,14 +312,21 @@ export class MainUI {
             statusRow.className = 'statusRow';
             this.selfNode.appendChild(statusRow);
         }
-        statusRow.innerHTML = '';
-        mediaStream.getTracks().forEach(track => {
-            const badge = document.createElement('span');
-            badge.classList.add('status', 'track');
-            badge.textContent = track.kind + ' ' + track.readyState;
-            badge.dataset.state = track.readyState;
+        const audio = mediaStream.getAudioTracks().length;
+        const video = mediaStream.getVideoTracks().length;
+        const parts: string[] = [];
+        if (audio > 0) parts.push(audio + ' audio');
+        if (video > 0) parts.push(video + ' video');
+        const description = parts.length > 0 ? parts.join(' + ') : 'no tracks';
+
+        let badge: HTMLSpanElement = statusRow.querySelector('span.status.media');
+        if (badge === null) {
+            badge = document.createElement('span');
+            badge.classList.add('status', 'media');
             statusRow.appendChild(badge);
-        });
+        }
+        badge.textContent = description;
+        badge.dataset.state = description;
     }
 
     public logMessage(messageText: string, messageType: string) {

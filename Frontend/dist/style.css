@@ -222,29 +222,20 @@ form input[type=checkbox] {
 }
 
 /* Per-category colours */
-.status.signal {
-    background: #5c4080;
-}
-
-.status.rtc {
+.status.connection {
     background: #197278;
 }
 
-.status.stream {
-    background: #1a5276;
-}
-
-.status.track {
+.status.media {
     background: #1e6b3a;
 }
 
 /* State overrides */
-.status[data-state="connected"],
-.status[data-state="live"] {
+.status.connection[data-state="connected"] {
     background: #1e6b3a;
 }
 
-.status[data-state="lost"],
-.status[data-state^="error"] {
+.status.connection[data-state="lost"],
+.status.connection[data-state^="error"] {
     background: #7b1818;
 }

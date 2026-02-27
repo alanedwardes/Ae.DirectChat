@@ -28,6 +28,7 @@ export interface OnConnectionChangedDelegate {
 export class PeerConnector implements IPeerConnector {
     private connector: SimplePeer.Instance;
     private isClosed: boolean;
+    private hasSignalled: boolean = false;
 
     public OnHasStream: OnHasStreamDelegate;
     public OnConnectionChanged: OnConnectionChangedDelegate;
@@ -44,35 +45,39 @@ export class PeerConnector implements IPeerConnector {
 
         this.connector.on('signal', (data: SimplePeer.SignalData) => {
             this.OnSendMessage(data, data.type);
-            this.OnConnectionChanged(data.type, 'signal');
+            if (!this.hasSignalled) {
+                this.hasSignalled = true;
+                this.OnConnectionChanged('connecting', 'connection');
+            }
         });
 
         this.connector.on('connect', () => {
-            this.OnConnectionChanged('connected', 'rtc');
-        });
-
-        this.connector.on('data', (data: any) => {
-            this.OnConnectionChanged('data ' + (typeof data === 'string' ? data.length : 0), 'rtc');
+            this.OnConnectionChanged('connected', 'connection');
         });
 
         this.connector.on('stream', (stream: MediaStream) => {
             this.OnHasStream(stream);
-            this.OnConnectionChanged('stream', 'stream');
-        });
-
-        this.connector.on('track', (track: MediaStreamTrack) => {
-            this.OnConnectionChanged(track.kind + ' ' + track.readyState, 'track');
+            this.OnConnectionChanged(PeerConnector.describeStream(stream), 'media');
         });
 
         this.connector.on('error', (error: Error) => {
-            this.OnConnectionChanged('error: ' + error.message, 'rtc');
+            this.OnConnectionChanged('error: ' + error.message, 'connection');
             this.Shutdown();
         });
 
         this.connector.on('close', () => {
-            this.OnConnectionChanged('lost', 'rtc');
+            this.OnConnectionChanged('lost', 'connection');
             this.Shutdown();
         });
+    }
+
+    private static describeStream(stream: MediaStream): string {
+        const audio = stream.getAudioTracks().length;
+        const video = stream.getVideoTracks().length;
+        const parts: string[] = [];
+        if (audio > 0) parts.push(audio + ' audio');
+        if (video > 0) parts.push(video + ' video');
+        return parts.length > 0 ? parts.join(' + ') : 'no tracks';
     }
 
     public Signal(signalData: SimplePeer.SignalData): void {
