@@ -10,7 +10,7 @@ interface OnCloseDelegate {
 }
 
 interface OnConnectionChangedDelegate {
-    (connectionId: string, change: string): void;
+    (connectionId: string, change: string, category: string): void;
 }
 
 interface OnLocalStreamDelegate {
@@ -89,7 +89,7 @@ export class ChatApp {
 
         this.connectionManager = new ConnectionManager(broker, this.sessionConfig, peerConnectorFactory);
         this.connectionManager.OnLocation = (clientId, location) => this.OnLocation(clientId, location);
-        this.connectionManager.OnConnectionChanged = (clientId, change) => this.OnConnectionChanged(clientId, change);
+        this.connectionManager.OnConnectionChanged = (clientId, change, category) => this.OnConnectionChanged(clientId, change, category);
         this.connectionManager.OnClose = (clientId) => this.OnClose(clientId);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
         this.connectionManager.OnHasStream = (clientId, stream) => this.OnRemoteStream(clientId, stream);

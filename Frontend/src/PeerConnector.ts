@@ -22,7 +22,7 @@ interface OnSendMessage {
 }
 
 export interface OnConnectionChangedDelegate {
-    (change: string): void;
+    (change: string, category: string): void;
 }
 
 export class PeerConnector implements IPeerConnector {
@@ -44,28 +44,33 @@ export class PeerConnector implements IPeerConnector {
 
         this.connector.on('signal', (data: SimplePeer.SignalData) => {
             this.OnSendMessage(data, data.type);
+            this.OnConnectionChanged(data.type, 'signal');
         });
 
         this.connector.on('connect', () => {
-            this.OnConnectionChanged('connected');
+            this.OnConnectionChanged('connected', 'rtc');
         });
 
         this.connector.on('data', (data: any) => {
-            this.OnConnectionChanged('data ' + (typeof data === 'string' ? data.length : 0));
+            this.OnConnectionChanged('data ' + (typeof data === 'string' ? data.length : 0), 'rtc');
         });
 
         this.connector.on('stream', (stream: MediaStream) => {
             this.OnHasStream(stream);
-            this.OnConnectionChanged('got stream ' + stream.id);
+            this.OnConnectionChanged('stream', 'stream');
+        });
+
+        this.connector.on('track', (track: MediaStreamTrack) => {
+            this.OnConnectionChanged(track.kind + ' ' + track.readyState, 'track');
         });
 
         this.connector.on('error', (error: Error) => {
-            this.OnConnectionChanged('error: ' + error.message);
+            this.OnConnectionChanged('error: ' + error.message, 'rtc');
             this.Shutdown();
         });
 
         this.connector.on('close', () => {
-            this.OnConnectionChanged('lost');
+            this.OnConnectionChanged('lost', 'rtc');
             this.Shutdown();
         });
     }

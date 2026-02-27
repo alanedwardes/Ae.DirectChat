@@ -16,7 +16,7 @@ interface OnNeedLocalStreamDelegate {
 }
 
 interface OnClientConnectionChangedDelegate {
-    (clientId: string, change: string): void;
+    (clientId: string, change: string, category: string): void;
 }
 
 export class ClientLocation {
@@ -68,7 +68,7 @@ export class ConnectionManager {
         const shouldOffer: boolean = fromId < this.sessionConfig.AttendeeId;
 
         const peerConnector = this.peerConnectorFactory.CreatePeerConnector(shouldOffer);
-        peerConnector.OnConnectionChanged = change => this.OnConnectionChanged(fromId, change);
+        peerConnector.OnConnectionChanged = (change, category) => this.OnConnectionChanged(fromId, change, category);
         peerConnector.OnClose = () => this.ProcessClose(fromId);
         peerConnector.OnHasStream = stream => this.OnHasStream(fromId, stream);
         peerConnector.OnSendMessage = (payload: any, type: string) => this.broker.Send(payload, type, fromId);

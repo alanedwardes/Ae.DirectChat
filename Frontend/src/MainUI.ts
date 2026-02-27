@@ -111,6 +111,7 @@ export class MainUI {
             let video = document.querySelector<HTMLVideoElement>('#localVideo');
             video.srcObject = mediaStream;
             video.play();
+            this.updateLocalStatus(mediaStream);
         }
 
         let selfNode = document.createElement("li");
@@ -142,18 +143,26 @@ export class MainUI {
             nameNode.innerHTML = shortLocation;
         };
 
-        this.chatApp.OnConnectionChanged = (clientId, change) => {
+        this.chatApp.OnConnectionChanged = (clientId, change, category) => {
             let clientNode = this.getClientNode(clientId);
 
-            let statusNode: HTMLSpanElement = clientNode.querySelector('span.status');
-            if (statusNode === null) {
-                statusNode = document.createElement("span");
-                statusNode.classList.add("status");
-                clientNode.appendChild(statusNode);
+            let statusRow: HTMLDivElement = clientNode.querySelector('div.statusRow');
+            if (statusRow === null) {
+                statusRow = document.createElement('div');
+                statusRow.className = 'statusRow';
+                clientNode.appendChild(statusRow);
             }
 
-            statusNode.textContent = change;
-            this.appendLog("[rtc] " + clientId.substring(0, 6) + ": " + change);
+            let badge: HTMLSpanElement = statusRow.querySelector('span.status.' + category);
+            if (badge === null) {
+                badge = document.createElement('span');
+                badge.classList.add('status', category);
+                statusRow.appendChild(badge);
+            }
+
+            badge.textContent = change;
+            badge.dataset.state = change;
+            this.appendLog('[' + category + '] ' + clientId.substring(0, 6) + ': ' + change);
         }
 
         this.chatApp.OnClose = clientId => {
@@ -219,21 +228,21 @@ export class MainUI {
     }
 
     public appendLog(line: string) {
-		let list = document.querySelector('#logList') as HTMLOListElement;
-		let item = document.createElement('li');
+        let list = document.querySelector('#logList') as HTMLOListElement;
+        let item = document.createElement('li');
 
-		const timestamp = new Date().toLocaleTimeString();
-		item.textContent = `[${timestamp}] ${line}`;
+        const timestamp = new Date().toLocaleTimeString();
+        item.textContent = `[${timestamp}] ${line}`;
 
-		list.appendChild(item);
-		while (list.childElementCount > 500) {
-			list.removeChild(list.firstElementChild);
-		}
+        list.appendChild(item);
+        while (list.childElementCount > 500) {
+            list.removeChild(list.firstElementChild);
+        }
 
-		const logWindow = document.querySelector('#logWindow') as HTMLElement;
-		if (logWindow) {
-			logWindow.scrollTop = logWindow.scrollHeight;
-		}
+        const logWindow = document.querySelector('#logWindow') as HTMLElement;
+        if (logWindow) {
+            logWindow.scrollTop = logWindow.scrollHeight;
+        }
     }
 
     public countryCodeEmoji(country: string): string {
@@ -282,6 +291,21 @@ export class MainUI {
         this.userMedia.RemoveRemoteStream(clientId);
 
         this.leaveSound.play();
+    }
+
+    public updateLocalStatus(mediaStream: MediaStream): void {
+        const container = document.querySelector<HTMLElement>('#localStatus');
+        if (!container) {
+            return;
+        }
+        container.innerHTML = '';
+        mediaStream.getTracks().forEach(track => {
+            const badge = document.createElement('span');
+            badge.classList.add('status', 'track');
+            badge.textContent = track.kind + ' ' + track.readyState;
+            badge.dataset.state = track.readyState;
+            container.appendChild(badge);
+        });
     }
 
     public logMessage(messageText: string, messageType: string) {
