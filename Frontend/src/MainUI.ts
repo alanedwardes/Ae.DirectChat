@@ -505,19 +505,29 @@ export class MainUI {
         return peak;
     }
 
+    private lastDrawTime: number = 0;
+    private readonly drawIntervalMs: number = 100; // ~10fps
+
     public drawAudioVisualisations() {
         if (!this.shouldDrawVolumeHistogram) {
             return;
         }
 
-        window.requestAnimationFrame(() => this.drawAudioVisualisations());
+        window.requestAnimationFrame((timestamp) => {
+            if (timestamp - this.lastDrawTime >= this.drawIntervalMs) {
+                this.lastDrawTime = timestamp;
 
-        let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
-        let context = canvas.getContext("2d");
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
-        this.drawAudioHistogram(canvas, context);
-        this.drawAudioOscilloscope(canvas, context);
+                const audioControls = document.getElementById("audioControls");
+                if (!audioControls.classList.contains("hidden")) {
+                    let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
+                    let context = canvas.getContext("2d");
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    this.drawAudioHistogram(canvas, context);
+                    this.drawAudioOscilloscope(canvas, context);
+                }
+            }
+            this.drawAudioVisualisations();
+        });
     }
 
     public drawAudioOscilloscope(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
@@ -540,8 +550,6 @@ export class MainUI {
         let inputSampleBuffer = this.userMedia.SampleInputTimeDomain();
         let outputSampleBuffer = this.userMedia.SampleOutputTimeDomain();
 
-
-
         this.inputVolumeHistogram.unshift(this.sampleVolume(inputSampleBuffer));
         if (this.inputVolumeHistogram.length > canvas.width) {
             this.inputVolumeHistogram.pop();
@@ -550,11 +558,6 @@ export class MainUI {
         this.ouputVolumeHistogram.unshift(this.sampleVolume(outputSampleBuffer));
         if (this.ouputVolumeHistogram.length > canvas.width) {
             this.ouputVolumeHistogram.pop();
-        }
-
-        var audioControls = document.getElementById("audioControls");
-        if (audioControls.classList.contains("hidden")) {
-            return;
         }
 
         context.clearRect(0, 0, canvas.width, canvas.height);
