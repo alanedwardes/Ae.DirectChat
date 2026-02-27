@@ -6,15 +6,15 @@
     <title>Direct Chat - Alan Edwardes</title>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
-	<script>
-		//// HACK: one of the dependencies needs this
-		window.process = {
-			nextTick: function(callback, arg1, arg2, arg3, arg4, arg5, arg6) {
-				console.log("process.nextTick polyfill called");
-				callback(arg1, arg2, arg3, arg4, arg5, arg6);
-			}
-		}
-	</script>
+    <script>
+        //// HACK: one of the dependencies needs this
+        window.process = {
+            nextTick: function (callback, arg1, arg2, arg3, arg4, arg5, arg6) {
+                console.log("process.nextTick polyfill called");
+                callback(arg1, arg2, arg3, arg4, arg5, arg6);
+            }
+        }
+    </script>
 </head>
 
 <body>
@@ -55,7 +55,6 @@
         <ol id="logList"></ol>
     </div>
     <video muted id="localVideo"></video>
-    <div id="localStatus"></div>
     <script src="bundle.js"></script>
     <script>
         window.onload = () => DirectChat.Entry.Start();

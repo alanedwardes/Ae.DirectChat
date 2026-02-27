@@ -248,19 +248,3 @@ form input[type=checkbox] {
 .status[data-state^="error"] {
     background: #7b1818;
 }
-
-/* Local track badges */
-#localStatus {
-    position: absolute;
-    right: 1em;
-    bottom: calc(20% + 0.5em);
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 3px;
-    pointer-events: none;
-}
-
-#localStatus .status {
-    opacity: 0.85;
-}

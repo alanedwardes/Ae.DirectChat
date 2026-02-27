@@ -12,6 +12,8 @@ export class MainUI {
     private readonly joinSound: HTMLAudioElement;
     private readonly leaveSound: HTMLAudioElement;
     private remoteVideo: { [id: string]: RemoteMedia; } = {};
+    private selfNode: HTMLLIElement;
+
 
     constructor(chatApp: ChatApp, userMedia: IUserMedia) {
         this.chatApp = chatApp;
@@ -115,7 +117,14 @@ export class MainUI {
         }
 
         let selfNode = document.createElement("li");
-        selfNode.innerHTML = 'You';
+        let selfLabel = document.createElement("span");
+        selfLabel.className = "label";
+        let selfName = document.createElement("span");
+        selfName.className = "name";
+        selfName.textContent = "You";
+        selfLabel.appendChild(selfName);
+        selfNode.appendChild(selfLabel);
+        this.selfNode = selfNode;
         document.querySelector("#attendeeList").appendChild(selfNode);
 
         this.chatApp.OnLocation = (clientId, location) => {
@@ -294,17 +303,22 @@ export class MainUI {
     }
 
     public updateLocalStatus(mediaStream: MediaStream): void {
-        const container = document.querySelector<HTMLElement>('#localStatus');
-        if (!container) {
+        if (!this.selfNode) {
             return;
         }
-        container.innerHTML = '';
+        let statusRow: HTMLDivElement = this.selfNode.querySelector('div.statusRow');
+        if (statusRow === null) {
+            statusRow = document.createElement('div');
+            statusRow.className = 'statusRow';
+            this.selfNode.appendChild(statusRow);
+        }
+        statusRow.innerHTML = '';
         mediaStream.getTracks().forEach(track => {
             const badge = document.createElement('span');
             badge.classList.add('status', 'track');
             badge.textContent = track.kind + ' ' + track.readyState;
             badge.dataset.state = track.readyState;
-            container.appendChild(badge);
+            statusRow.appendChild(badge);
         });
     }
 
