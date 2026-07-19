@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Direct Chat - Alan Edwardes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+    <script>
+        //// HACK: one of the dependencies needs this
+        window.process = {
+            nextTick: function (callback, arg1, arg2, arg3, arg4, arg5, arg6) {
+                console.log("process.nextTick polyfill called");
+                callback(arg1, arg2, arg3, arg4, arg5, arg6);
+            }
+        }
+    </script>
+    <script src="lib/simplepeer.min.js"></script>
+</head>
+
+<body>
+    <div class="messages"></div>
+    <div id="remoteVideo"></div>
+    <div class="controls">
+        <button id="audioControlsButton">🎤 Audio</button>
+        <button id="videoControlsButton">📷 Video</button>
+        <button id="screenControlsButton">🖥️ Screen</button>
+        <button id="attendeeWindowButton">🧍 Attendees</button>
+        <button id="logWindowButton">📜 Logs</button>
+    </div>
+    <div style="clear:both"></div>
+    <div id="audioControls" class="window">
+        <button class="closeButton">✕</button>
+        <h1>🎤 Audio</h1>
+        <canvas id="volumeHistogramCanvas" width="465" height="64"></canvas>
+        <form id="audioParameters"></form>
+    </div>
+    <div id="videoControls" class="window hidden">
+        <button class="closeButton">✕</button>
+        <h1>📷 Video</h1>
+        <form id="videoParameters"></form>
+    </div>
+    <div id="screenControls" class="window hidden">
+        <button class="closeButton">✕</button>
+        <h1>🖥️ Screen</h1>
+        <form id="screenParameters"></form>
+    </div>
+    <div id="attendeeWindow" class="window">
+        <button class="closeButton">✕</button>
+        <h1>🧍 Attendees</h1>
+        <ol id="attendeeList"></ol>
+    </div>
+    <div id="logWindow" class="window hidden">
+        <button class="closeButton">✕</button>
+        <h1>📜 Logs</h1>
+        <ol id="logList"></ol>
+    </div>
+    <video muted id="localVideo"></video>
+    <script type="module" src="js/Entry.js"></script>
+</body>
+
+</html>

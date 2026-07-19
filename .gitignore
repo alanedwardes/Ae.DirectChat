@@ -1,5 +1,6 @@
 .vs/
 bin/
 obj/
-Frontend/dist/bundle.js*
-node_modules/
+wwwroot/js/
+.env
+geoip/
