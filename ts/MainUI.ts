@@ -6,6 +6,10 @@ class RemoteMedia {
     public Stream: MediaStream;
 }
 
+function countryCodeToFlagEmoji(countryCode: string): string {
+    return String.fromCodePoint(...[...countryCode.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
 export class MainUI {
     private readonly chatApp: ChatApp;
     private readonly userMedia: IUserMedia;
@@ -138,10 +142,10 @@ export class MainUI {
                 locationNode = document.createElement("span");
                 locationNode.title = location.SubdivisionName + ", " + location.CityName + ", " + location.CountryName + ", " + location.ContinentName;
 
-                let flag = document.createElement("img");
-                flag.src = "https://chat.alanedwardes.com/flags/" + location.CountryCode.toLowerCase() + ".png";
+                let flag = document.createElement("span");
+                flag.className = "flag";
+                flag.textContent = countryCodeToFlagEmoji(location.CountryCode);
                 flag.title = locationNode.title;
-                flag.alt = flag.title;
                 locationNode.appendChild(flag);
 
                 locationNode.classList.add("location");
