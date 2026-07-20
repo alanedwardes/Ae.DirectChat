@@ -13,7 +13,28 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
+
+var forwardingLogger = app.Logger;
+app.Use(async (context, next) =>
+{
+    forwardingLogger.LogInformation(
+        "Forwarding debug (raw): X-Forwarded-For={XForwardedFor} X-Real-IP={XRealIp} TcpPeer={RemoteIp}",
+        context.Request.Headers["X-Forwarded-For"].ToString(),
+        context.Request.Headers["X-Real-IP"].ToString(),
+        context.Connection.RemoteIpAddress);
+    await next();
+});
+
 app.UseForwardedHeaders();
+
+app.Use(async (context, next) =>
+{
+    forwardingLogger.LogInformation(
+        "Forwarding debug (resolved): RemoteIpAddress={RemoteIp}",
+        context.Connection.RemoteIpAddress);
+    await next();
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseWebSockets();
