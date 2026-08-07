@@ -279,8 +279,15 @@ export class UserMedia implements IUserMedia {
         let videoTracks: MediaStreamTrack[];
         if (this.currentSettings.ScreenEnabled.Value) {
             // @ts-ignore
-            const screenStream: MediaStream = await navigator.mediaDevices.getDisplayMedia();
+            const screenStream: MediaStream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    frameRate: { ideal: this.currentSettings.VideoFrameRate.Value }
+                }
+            });
             videoTracks = screenStream.getVideoTracks();
+            // Screen tracks default to a "detail" content hint, which biases the
+            // encoder towards resolution/quality at the expense of frame rate.
+            videoTracks.forEach(track => track.contentHint = "motion");
         } else {
             videoTracks = stream.getVideoTracks();
         }
