@@ -214,6 +214,8 @@ export class MainUI {
 
         document.querySelector('#audioControlsButton').addEventListener('click', () => {
             document.querySelector('#audioControls').classList.remove("hidden");
+
+            this.drawAudioVisualisations();
         });
 
         document.querySelector('#videoControlsButton').addEventListener('click', () => {
@@ -503,96 +505,171 @@ export class MainUI {
         }
     }
 
-    private inputVolumeHistogram: Array<number> = [];
-    private ouputVolumeHistogram: Array<number> = [];
-
     private shouldDrawVolumeHistogram: boolean = true;
+
+    private static readonly visualisationFrameInterval: number = 1000 / 60;
+    private static readonly frequencyBarMinWidth: number = 2;
+
+    private visualisationFrameHandle: number = 0;
+    private lastVisualisationTime: number = 0;
+    private audioControlsWindow: HTMLElement;
+    private visualisationCanvas: HTMLCanvasElement;
+    private visualisationContext: CanvasRenderingContext2D;
+    private histogramCanvas: HTMLCanvasElement;
+    private histogramContext: CanvasRenderingContext2D;
+    private gridCanvas: HTMLCanvasElement;
 
     public sampleVolume(sampleBuffer: Float32Array): number {
         let peak = 0;
-        sampleBuffer.forEach(function (value) {
-            peak = Math.max(peak, Math.abs(value));
-        });
+        for (let i = 0; i < sampleBuffer.length; i++) {
+            const value = Math.abs(sampleBuffer[i]);
+            if (value > peak) {
+                peak = value;
+            }
+        }
         return peak;
     }
 
     public drawAudioVisualisations() {
+        if (this.visualisationFrameHandle !== 0) {
+            return;
+        }
+
+        this.visualisationFrameHandle = window.requestAnimationFrame(time => this.visualisationTick(time));
+    }
+
+    private visualisationTick(time: number): void {
+        this.visualisationFrameHandle = 0;
+
         if (!this.shouldDrawVolumeHistogram) {
             return;
         }
 
-        window.requestAnimationFrame(() => this.drawAudioVisualisations());
+        if (this.audioControlsWindow == null) {
+            this.audioControlsWindow = document.getElementById("audioControls");
+        }
 
-        const audioControls = document.getElementById("audioControls");
-        if (audioControls.classList.contains("hidden")) {
+        if (this.audioControlsWindow.classList.contains("hidden")) {
             return;
         }
 
-        let canvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
-        let context = canvas.getContext("2d");
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        this.visualisationFrameHandle = window.requestAnimationFrame(t => this.visualisationTick(t));
 
-        this.drawAudioHistogram(canvas, context);
-        this.drawAudioOscilloscope(canvas, context);
-    }
-
-    public drawAudioOscilloscope(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
-        let inputSampleBuffer = this.userMedia.SampleInputFrequency();
-
-        context.fillStyle = "rgba(0, 0, 255, 0.5)";
-
-        const barWidth = (canvas.width / inputSampleBuffer.length);
-        let posX = 0;
-        for (let i = 0; i < inputSampleBuffer.length; i++) {
-            const frequencyAmplitude = inputSampleBuffer[i] / 255;
-            const barHeight = frequencyAmplitude * canvas.height;
-            context.fillRect(posX, canvas.height - barHeight, barWidth, barHeight);
-            posX += barWidth;
+        // Allow 1ms of jitter so a 60Hz display doesn't skip alternate frames
+        if (time - this.lastVisualisationTime < MainUI.visualisationFrameInterval - 1) {
+            return;
         }
-    }
+        this.lastVisualisationTime = time;
 
-    public drawAudioHistogram(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
+        this.ensureVisualisationLayers();
 
-        let inputSampleBuffer = this.userMedia.SampleInputTimeDomain();
-        let outputSampleBuffer = this.userMedia.SampleOutputTimeDomain();
+        const canvas = this.visualisationCanvas;
+        const context = this.visualisationContext;
 
-        this.inputVolumeHistogram.unshift(this.sampleVolume(inputSampleBuffer));
-        if (this.inputVolumeHistogram.length > canvas.width) {
-            this.inputVolumeHistogram.pop();
-        }
-
-        this.ouputVolumeHistogram.unshift(this.sampleVolume(outputSampleBuffer));
-        if (this.ouputVolumeHistogram.length > canvas.width) {
-            this.ouputVolumeHistogram.pop();
-        }
+        this.drawHistogramColumn();
 
         context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(this.histogramCanvas, 0, 0);
+        context.drawImage(this.gridCanvas, 0, 0);
+        this.drawFrequencyBars(canvas, context);
+    }
 
-        for (let i = 0; i < this.ouputVolumeHistogram.length; i++) {
-            const sample: number = this.ouputVolumeHistogram[i];
-            context.fillStyle = "rgba(255, 255, 255, 0.5)";
-            context.fillRect(canvas.width - i, canvas.height, 1, -canvas.height * sample);
+    private static createLayer(width: number, height: number): HTMLCanvasElement {
+        const layer = document.createElement("canvas");
+        layer.width = width;
+        layer.height = height;
+        return layer;
+    }
+
+    private ensureVisualisationLayers(): void {
+        if (this.visualisationCanvas != null) {
+            return;
         }
 
-        for (let i = 0; i < this.inputVolumeHistogram.length; i++) {
-            const sample: number = this.inputVolumeHistogram[i];
-            context.fillStyle = sample >= .99 ? "red" : "green";
-            context.fillRect(canvas.width - i, canvas.height, 1, -canvas.height * sample);
-        }
+        this.visualisationCanvas = <HTMLCanvasElement>document.getElementById("volumeHistogramCanvas");
+        this.visualisationContext = this.visualisationCanvas.getContext("2d");
+
+        const width = this.visualisationCanvas.width;
+        const height = this.visualisationCanvas.height;
+
+        this.histogramCanvas = MainUI.createLayer(width, height);
+        this.histogramContext = this.histogramCanvas.getContext("2d");
+
+        this.gridCanvas = MainUI.createLayer(width, height);
+        const gridContext = this.gridCanvas.getContext("2d");
+        gridContext.fillStyle = "rgba(255, 255, 255, 0.1)";
 
         const rowTicks: number = 10;
-        const rowHeight: number = Math.round(canvas.height / rowTicks);
-        context.fillStyle = "rgba(255, 255, 255, 0.1)";
+        const rowHeight: number = Math.round(height / rowTicks);
         for (let i = 1; i < rowTicks; i++) {
-            context.fillRect(0, rowHeight * i, canvas.width, 1);
+            gridContext.fillRect(0, rowHeight * i, width, 1);
         }
 
         const columnTicks: number = 40;
-        const columnWidth: number = Math.round(canvas.width / columnTicks);
-        context.fillStyle = "rgba(255, 255, 255, 0.1)";
+        const columnWidth: number = Math.round(width / columnTicks);
         for (let i = 1; i < columnTicks; i++) {
-            context.fillRect(columnWidth * i, 0, 1, canvas.height);
+            gridContext.fillRect(columnWidth * i, 0, 1, height);
         }
+    }
+
+    private drawHistogramColumn(): void {
+        const canvas = this.histogramCanvas;
+        const context = this.histogramContext;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Shift history left 1px; drawing a canvas onto itself is allowed
+        context.globalCompositeOperation = "copy";
+        context.drawImage(canvas, -1, 0);
+        context.globalCompositeOperation = "source-over";
+        context.clearRect(width - 1, 0, 1, height);
+
+        const outputVolume = this.sampleVolume(this.userMedia.SampleOutputTimeDomain());
+        if (outputVolume > 0) {
+            context.fillStyle = "rgba(255, 255, 255, 0.5)";
+            context.fillRect(width - 1, height - height * outputVolume, 1, height * outputVolume);
+        }
+
+        const inputVolume = this.sampleVolume(this.userMedia.SampleInputTimeDomain());
+        if (inputVolume > 0) {
+            context.fillStyle = inputVolume >= .99 ? "red" : "green";
+            context.fillRect(width - 1, height - height * inputVolume, 1, height * inputVolume);
+        }
+    }
+
+    private drawFrequencyBars(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D): void {
+        const bins = this.userMedia.SampleInputFrequency();
+        if (bins.length === 0) {
+            return;
+        }
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const barCount = Math.max(1, Math.min(bins.length, Math.floor(width / MainUI.frequencyBarMinWidth)));
+        const binsPerBar = bins.length / barCount;
+        const barWidth = width / barCount;
+
+        context.beginPath();
+        for (let bar = 0; bar < barCount; bar++) {
+            const start = Math.floor(bar * binsPerBar);
+            const end = Math.max(start + 1, Math.floor((bar + 1) * binsPerBar));
+
+            let peak = 0;
+            for (let i = start; i < end; i++) {
+                if (bins[i] > peak) {
+                    peak = bins[i];
+                }
+            }
+
+            if (peak === 0) {
+                continue;
+            }
+
+            const barHeight = (peak / 255) * height;
+            context.rect(bar * barWidth, height - barHeight, barWidth, barHeight);
+        }
+        context.fillStyle = "rgba(0, 0, 255, 0.5)";
+        context.fill();
     }
 
     public parseStringToType(input: string, type: string) {

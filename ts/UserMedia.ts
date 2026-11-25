@@ -137,6 +137,14 @@ export class UserMedia implements IUserMedia {
 
     private outputAnalyserNode: AnalyserNode;
 
+    private inputTracks: MediaStreamTrack[] = [];
+    private inputNodes: AudioNode[] = [];
+
+    private readonly timeDomainBuffers = new WeakMap<AnalyserNode, Float32Array<ArrayBuffer>>();
+    private readonly frequencyBuffers = new WeakMap<AnalyserNode, Uint8Array<ArrayBuffer>>();
+    private static readonly emptyTimeDomainBuffer: Float32Array<ArrayBuffer> = new Float32Array(0);
+    private static readonly emptyFrequencyBuffer: Uint8Array<ArrayBuffer> = new Uint8Array(0);
+
     private currentSettings: IUserMediaSettings = new UserMediaSettings();
 
     public OnMediaStreamAvailable: OnMediaStreamAvailable;
@@ -162,10 +170,6 @@ export class UserMedia implements IUserMedia {
         }
 
         if (this.currentSettings.AudioNoiseSuppression.Value !== newSettings.AudioNoiseSuppression.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.AudioLocalMeter.Value !== newSettings.AudioLocalMeter.Value) {
             shouldRefreshMediaAccess = true;
         }
 
@@ -278,27 +282,33 @@ export class UserMedia implements IUserMedia {
 
         let videoTracks: MediaStreamTrack[];
         if (this.currentSettings.ScreenEnabled.Value) {
-            // @ts-ignore
-            const screenStream: MediaStream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: { ideal: this.currentSettings.VideoFrameRate.Value }
-                }
-            });
+            let screenStream: MediaStream;
+            try {
+                // @ts-ignore
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        frameRate: { ideal: this.currentSettings.VideoFrameRate.Value }
+                    }
+                });
+            }
+            catch (err) {
+                stream.getTracks().forEach(track => track.stop());
+                throw err;
+            }
             videoTracks = screenStream.getVideoTracks();
             // Screen tracks default to a "detail" content hint, which biases the
             // encoder towards resolution/quality at the expense of frame rate.
             videoTracks.forEach(track => track.contentHint = "motion");
+            stream.getVideoTracks().forEach(track => track.stop());
         } else {
             videoTracks = stream.getVideoTracks();
         }
 
         console.assert(videoTracks.length <= 1, "Expected 1 or 0 video tracks, there are " + videoTracks.length);
 
-        this.inputStreamAudioNode = this.ProcessAudioTrackToMono(stream);
+        this.ReleaseInputPipeline();
 
-        if (this.inputStreamMonitorAudioNode != null) {
-            this.inputStreamMonitorAudioNode.disconnect();
-        }
+        this.inputStreamAudioNode = this.ProcessAudioTrackToMono(stream);
 
         this.inputStreamMonitorAudioNode = this.GetAudioContext().createGain();
         this.inputStreamMonitorAudioNode.gain.value = this.currentSettings.AudioLocalListen.Value;
@@ -314,6 +324,9 @@ export class UserMedia implements IUserMedia {
             inputStream.addTrack(videoTracks[0]);
         }
 
+        this.inputNodes.push(this.inputStreamMonitorAudioNode, inputStreamNode);
+        this.inputTracks.push(...audioTracks, ...videoTracks, ...inputStream.getAudioTracks());
+
         if (this.OnMediaStreamAvailable != null) {
             this.OnMediaStreamAvailable(inputStream);
         }
@@ -321,39 +334,57 @@ export class UserMedia implements IUserMedia {
         return inputStream;
     }
 
-    private static GetTimeDomainDataFromAnalyser(analyserNode: AnalyserNode): Float32Array {
+    private ReleaseInputPipeline(): void {
+        this.inputNodes.forEach(node => node.disconnect());
+        this.inputNodes = [];
+        this.inputTracks.forEach(track => track.stop());
+        this.inputTracks = [];
+    }
+
+    // The returned buffers are reused and overwritten on the next call
+    private GetTimeDomainDataFromAnalyser(analyserNode: AnalyserNode): Float32Array {
         if (analyserNode == null) {
-            return new Float32Array(0);
+            return UserMedia.emptyTimeDomainBuffer;
         }
 
-        const sampleBuffer = new Float32Array(analyserNode.fftSize);
+        let sampleBuffer = this.timeDomainBuffers.get(analyserNode);
+        if (sampleBuffer === undefined || sampleBuffer.length !== analyserNode.fftSize) {
+            sampleBuffer = new Float32Array(analyserNode.fftSize);
+            this.timeDomainBuffers.set(analyserNode, sampleBuffer);
+        }
+
         analyserNode.getFloatTimeDomainData(sampleBuffer);
         return sampleBuffer;
     }
 
-    private static GetFrequencyDataFromAnalyser(analyserNode: AnalyserNode): Uint8Array {
+    private GetFrequencyDataFromAnalyser(analyserNode: AnalyserNode): Uint8Array {
         if (analyserNode == null) {
-            return new Uint8Array(0);
+            return UserMedia.emptyFrequencyBuffer;
         }
 
-        const sampleBuffer = new Uint8Array(analyserNode.frequencyBinCount);
+        let sampleBuffer = this.frequencyBuffers.get(analyserNode);
+        if (sampleBuffer === undefined || sampleBuffer.length !== analyserNode.frequencyBinCount) {
+            sampleBuffer = new Uint8Array(analyserNode.frequencyBinCount);
+            this.frequencyBuffers.set(analyserNode, sampleBuffer);
+        }
+
         analyserNode.getByteFrequencyData(sampleBuffer);
         return sampleBuffer;
     }
 
     public SampleInputTimeDomain(): Float32Array {
-        return UserMedia.GetTimeDomainDataFromAnalyser(this.inputAnalyserNode);
+        return this.GetTimeDomainDataFromAnalyser(this.inputAnalyserNode);
     }
 
     public SampleOutputTimeDomain(): Float32Array {
-        return UserMedia.GetTimeDomainDataFromAnalyser(this.outputAnalyserNode);
+        return this.GetTimeDomainDataFromAnalyser(this.outputAnalyserNode);
     }
 
     public SampleInputFrequency(): Uint8Array {
-        return UserMedia.GetFrequencyDataFromAnalyser(this.inputAnalyserNode);
+        return this.GetFrequencyDataFromAnalyser(this.inputAnalyserNode);
     }
     public SampleOutputFrequency(): Uint8Array {
-        return UserMedia.GetFrequencyDataFromAnalyser(this.outputAnalyserNode);
+        return this.GetFrequencyDataFromAnalyser(this.outputAnalyserNode);
     }
 
     private SetGainParameters(newSettings: UserMediaSettings): void {
@@ -414,6 +445,12 @@ export class UserMedia implements IUserMedia {
 
         this.inputAnalyserNode = this.GetAudioContext().createAnalyser();
         lastNode.connect(this.inputAnalyserNode);
+
+        this.inputNodes.push(source, this.inputGainNode, this.inputAnalyserNode);
+        if (this.inputCompressorNode != null) {
+            this.inputNodes.push(this.inputCompressorNode);
+        }
+
         return this.inputAnalyserNode;
     }
 }
