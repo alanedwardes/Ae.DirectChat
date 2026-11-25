@@ -120,11 +120,11 @@ form input[type=checkbox] {
     word-break: break-word;
 }
 
-#logList li:nth-child(odd) {
+#logList li {
     background: #3a3a3a;
 }
 
-#logList li:nth-child(even) {
+#logList li.alt {
     background: #4a4a4a;
 }
 

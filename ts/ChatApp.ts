@@ -78,7 +78,6 @@ export class ChatApp {
                 try {
                     const line = formatTraffic(direction as "in" | "out", data);
                     this.OnLog(line);
-                    console.debug("[ws raw]", direction, data);
                 } catch {
                     this.OnLog("[ws " + direction + "] (unserializable)");
                 }

@@ -106,7 +106,9 @@ export class MainUI {
             }
 
             let video: HTMLVideoElement = <HTMLVideoElement>remoteMedia.Element.children[0];
-            video.srcObject = mediaStream;
+            if (video.srcObject !== mediaStream) {
+                video.srcObject = mediaStream;
+            }
             video.muted = true;
             video.play();
 
@@ -231,7 +233,9 @@ export class MainUI {
         });
 
         document.querySelector('#logWindowButton').addEventListener('click', () => {
-            document.querySelector('#logWindow').classList.remove("hidden");
+            const logWindow = document.querySelector('#logWindow');
+            logWindow.classList.remove("hidden");
+            logWindow.scrollTop = logWindow.scrollHeight;
         });
 
         document.querySelectorAll('.closeButton').forEach(element => {
@@ -242,21 +246,48 @@ export class MainUI {
         });
     }
 
+    private static readonly maxLogItems: number = 500;
+    private logList: HTMLOListElement;
+    private logWindow: HTMLElement;
+    private pendingLogItems: HTMLLIElement[] = [];
+    private logFlushHandle: number = 0;
+    private logItemCount: number = 0;
+
     public appendLog(line: string) {
-        let list = document.querySelector('#logList') as HTMLOListElement;
-        let item = document.createElement('li');
-
-        const timestamp = new Date().toLocaleTimeString();
-        item.textContent = `[${timestamp}] ${line}`;
-
-        list.appendChild(item);
-        while (list.childElementCount > 500) {
-            list.removeChild(list.firstElementChild);
+        const item = document.createElement('li');
+        item.textContent = `[${new Date().toLocaleTimeString()}] ${line}`;
+        if (this.logItemCount++ % 2 === 1) {
+            item.className = 'alt';
         }
 
-        const logWindow = document.querySelector('#logWindow') as HTMLElement;
-        if (logWindow) {
-            logWindow.scrollTop = logWindow.scrollHeight;
+        this.pendingLogItems.push(item);
+        if (this.pendingLogItems.length > MainUI.maxLogItems) {
+            this.pendingLogItems.shift();
+        }
+
+        if (this.logFlushHandle === 0) {
+            this.logFlushHandle = window.requestAnimationFrame(() => this.flushLog());
+        }
+    }
+
+    private flushLog(): void {
+        this.logFlushHandle = 0;
+
+        if (this.logList == null) {
+            this.logList = document.querySelector('#logList');
+            this.logWindow = document.querySelector('#logWindow');
+        }
+
+        this.logList.append(...this.pendingLogItems);
+        this.pendingLogItems = [];
+
+        let excess = this.logList.childElementCount - MainUI.maxLogItems;
+        while (excess-- > 0) {
+            this.logList.firstElementChild.remove();
+        }
+
+        if (!this.logWindow.classList.contains('hidden')) {
+            this.logWindow.scrollTop = this.logWindow.scrollHeight;
         }
     }
 

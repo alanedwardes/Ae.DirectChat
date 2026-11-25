@@ -54,8 +54,17 @@ export class PeerConnector implements IPeerConnector {
         });
 
         this.connector.on('stream', (stream: MediaStream) => {
-            this.OnHasStream(stream);
-            this.OnConnectionChanged(PeerConnector.describeStream(stream), 'media');
+            const onStreamChanged = () => {
+                if (this.isClosed) {
+                    return;
+                }
+                this.OnHasStream(stream);
+                this.OnConnectionChanged(PeerConnector.describeStream(stream), 'media');
+            };
+            // The remote keeps one stream and adds/removes tracks on it, which doesn't re-emit 'stream'
+            stream.addEventListener('addtrack', onStreamChanged);
+            stream.addEventListener('removetrack', onStreamChanged);
+            onStreamChanged();
         });
 
         this.connector.on('error', (error: Error) => {
@@ -97,7 +106,8 @@ export class PeerConnector implements IPeerConnector {
         this.OnClose();
     }
 
-    private localStream: MediaStream = null;
+    // simple-peer keys its senders by the stream a track was first added with, so this stays the first stream sent
+    private senderStream: MediaStream = null;
     private localTracks: MediaStreamTrack[] = [];
 
     public SendStream(stream: MediaStream): void {
@@ -105,16 +115,32 @@ export class PeerConnector implements IPeerConnector {
             return;
         }
 
-        this.StopStream();
+        if (this.senderStream == null) {
+            this.senderStream = stream;
+        }
 
-        this.localStream = stream;
-        this.localTracks = stream.getTracks();
-        this.localTracks.forEach(track => this.connector.addTrack(track, this.localStream));
-    }
+        const unmatched = stream.getTracks();
+        const nextTracks: MediaStreamTrack[] = [];
 
-    private StopStream(): void {
-        this.localTracks.forEach(track => this.connector.removeTrack(track, this.localStream));
-        this.localStream = null;
-        this.localTracks = [];
+        for (const oldTrack of this.localTracks) {
+            const index = unmatched.findIndex(track => track.kind === oldTrack.kind);
+            if (index < 0) {
+                this.connector.removeTrack(oldTrack, this.senderStream);
+                continue;
+            }
+
+            const newTrack = unmatched.splice(index, 1)[0];
+            if (newTrack !== oldTrack) {
+                this.connector.replaceTrack(oldTrack, newTrack, this.senderStream);
+            }
+            nextTracks.push(newTrack);
+        }
+
+        for (const track of unmatched) {
+            this.connector.addTrack(track, this.senderStream);
+            nextTracks.push(track);
+        }
+
+        this.localTracks = nextTracks;
     }
 }

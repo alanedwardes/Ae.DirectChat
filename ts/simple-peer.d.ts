@@ -19,6 +19,7 @@ declare namespace SimplePeer {
         signal(data: SignalData): void;
         addTrack(track: MediaStreamTrack, stream: MediaStream): void;
         removeTrack(track: MediaStreamTrack, stream: MediaStream): void;
+        replaceTrack(oldTrack: MediaStreamTrack, newTrack: MediaStreamTrack, stream: MediaStream): void;
         removeAllListeners(): void;
         destroy(): void;
     }
