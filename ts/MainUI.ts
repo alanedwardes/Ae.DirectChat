@@ -1,5 +1,5 @@
 import { ChatApp } from "./ChatApp.js";
-import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia.js";
+import { IUserMediaSettings, IUserMediaSetting, SettingChanges, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia.js";
 
 class RemoteMedia {
     public Element: HTMLDivElement;
@@ -61,6 +61,7 @@ export class MainUI {
 
         if (window.location.search.startsWith('?')) {
             let settings: IUserMediaSettings = this.userMedia.GetSettings();
+            let changes: SettingChanges = {};
 
             let search = window.location.search.substring(1).split('&');
             for (let i = 0; i < search.length; i++) {
@@ -81,10 +82,10 @@ export class MainUI {
                     return;
                 }
 
-                settings[settingName].Value = settingTypedValue;
+                changes[settingName] = settingTypedValue;
             }
 
-            this.applyNewSettings(settings);
+            this.applyNewSettings(changes);
         }
 
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {
@@ -495,8 +496,8 @@ export class MainUI {
         }
     }
 
-    public applyNewSettings(newSettings: IUserMediaSettings) {
-        this.userMedia.SetSettings(newSettings).catch(err => {
+    public applyNewSettings(changes: SettingChanges) {
+        this.userMedia.UpdateSettings(changes).catch(err => {
             console.error(err);
             const reason = err instanceof Error ? err.message : String(err);
             const message = err instanceof DOMException && err.name === "NotAllowedError"
@@ -507,7 +508,9 @@ export class MainUI {
 
         const oldShouldDrawVolumeHistogram: boolean = this.shouldDrawVolumeHistogram;
 
-        this.shouldDrawVolumeHistogram = newSettings.AudioLocalMeter.Value;
+        if (changes.hasOwnProperty("AudioLocalMeter")) {
+            this.shouldDrawVolumeHistogram = changes["AudioLocalMeter"];
+        }
 
         if (!oldShouldDrawVolumeHistogram && this.shouldDrawVolumeHistogram) {
             this.drawAudioVisualisations();
@@ -529,10 +532,8 @@ export class MainUI {
             input.id = "setting" + input.type + settingKey;
             input.checked = settingValue.Value;
             input.oninput = (event) => {
-                let settings: IUserMediaSettings = this.userMedia.GetSettings();
                 let sourceElement: HTMLInputElement = <HTMLInputElement>event.srcElement;
-                settings[settingKey].Value = sourceElement.checked;
-                this.applyNewSettings(settings);
+                this.applyNewSettings({ [settingKey]: sourceElement.checked });
             };
 
             let label = document.createElement("label");
@@ -575,10 +576,9 @@ export class MainUI {
             };
 
             input.onchange = (event) => {
-                let settings: IUserMediaSettings = this.userMedia.GetSettings();
                 let sourceElement = <HTMLInputElement>event.srcElement;
-                settings[settingKey].Value = sourceElement.value;
-                this.applyNewSettings(settings);
+                // Range values are numbers; passing the input's string would look like a change every time
+                this.applyNewSettings({ [settingKey]: Number(sourceElement.value) });
             };
 
             paragraph.appendChild(valueLabel);
@@ -607,10 +607,8 @@ export class MainUI {
 
             select.id = "setting" + select.type + settingKey;
             select.oninput = (event) => {
-                let settings: IUserMediaSettings = this.userMedia.GetSettings();
                 let sourceElement = <HTMLSelectElement>event.srcElement;
-                settings[settingKey].Value = settings[settingKey].Options[sourceElement.selectedIndex];
-                this.applyNewSettings(settings);
+                this.applyNewSettings({ [settingKey]: settingValueOptions.Options[sourceElement.selectedIndex] });
             };
 
             label.setAttribute("for", select.id);

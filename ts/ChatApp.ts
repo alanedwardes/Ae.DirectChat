@@ -65,7 +65,7 @@ export class ChatApp {
         };
 
         try {
-            await this.userMedia.GetMediaStream();
+            await this.userMedia.RefreshMediaStream();
         }
         catch (err) {
             console.error(err);

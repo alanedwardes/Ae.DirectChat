@@ -1,7 +1,8 @@
 export interface IUserMedia {
     GetMediaStream(): Promise<MediaStream>;
+    RefreshMediaStream(): Promise<MediaStream>;
     GetSettings(): UserMediaSettings;
-    SetSettings(newSettings: UserMediaSettings): Promise<void>;
+    UpdateSettings(changes: SettingChanges): Promise<void>;
     SampleInputTimeDomain(): Float32Array;
     SampleOutputTimeDomain(): Float32Array;
     SampleInputFrequency(): Uint8Array;
@@ -127,6 +128,11 @@ interface OnMediaStreamAvailable {
     (stream: MediaStream): void;
 }
 
+// Setting key to its new value, e.g. { ScreenEnabled: false }
+export interface SettingChanges {
+    [key: string]: any;
+}
+
 interface OnSettingsChanged {
     (settings: IUserMediaSettings): void;
 }
@@ -176,32 +182,64 @@ export class UserMedia implements IUserMedia {
         return JSON.parse(JSON.stringify(this.currentSettings));
     }
 
-    public SetSettings(newSettings: IUserMediaSettings): Promise<void> {
-        const result = this.settingsQueue.then(() => this.ApplySettings(newSettings));
-        this.settingsQueue = result.catch((): void => undefined);
+    // Takes only the settings being changed, merged into the current settings when the change runs, so a change
+    // queued behind a slow one (e.g. an open screen picker) can't carry stale values for the other settings
+    public UpdateSettings(changes: SettingChanges): Promise<void> {
+        const needsRefresh = Object.keys(changes).some(key => UserMedia.refreshSettingKeys.includes(key));
+        if (!needsRefresh) {
+            // Cheap changes (gain, compressor, meter...) apply straight away, even while a refresh is in progress
+            this.MergeChanges(changes);
+            this.NotifySettingsChanged();
+            return Promise.resolve();
+        }
+
+        return this.Enqueue(() => this.ApplyChanges(changes));
+    }
+
+    // Acquires media after any settings changes already queued (e.g. ones from the URL), so it uses those settings
+    public RefreshMediaStream(): Promise<MediaStream> {
+        return this.Enqueue(() => this.GetMediaStream());
+    }
+
+    private Enqueue<T>(work: () => Promise<T>): Promise<T> {
+        const result = this.settingsQueue.then(work);
+        this.settingsQueue = result.then((): void => undefined, (): void => undefined);
         return result;
     }
 
-    private async ApplySettings(newSettings: IUserMediaSettings): Promise<void> {
-        const previousSettings = this.currentSettings;
-        const shouldRefreshMediaAccess = UserMedia.refreshSettingKeys.some(key => previousSettings[key].Value !== newSettings[key].Value);
+    private MergeChanges(changes: SettingChanges): void {
+        for (const key of Object.keys(changes)) {
+            if (this.currentSettings.hasOwnProperty(key)) {
+                this.currentSettings[key].Value = changes[key];
+            }
+        }
 
         // These are cheap so don't need to be switched on/off
-        this.SetCompressionParameters(newSettings);
-        this.SetGainParameters(newSettings);
+        this.SetCompressionParameters(this.currentSettings);
+        this.SetGainParameters(this.currentSettings);
+    }
 
-        this.currentSettings = newSettings;
+    private async ApplyChanges(changes: SettingChanges): Promise<void> {
+        const previousValues: SettingChanges = {};
+        for (const key of Object.keys(changes)) {
+            if (this.currentSettings.hasOwnProperty(key)) {
+                previousValues[key] = this.currentSettings[key].Value;
+            }
+        }
+
+        const shouldRefreshMediaAccess = Object.keys(previousValues)
+            .some(key => UserMedia.refreshSettingKeys.includes(key) && previousValues[key] !== changes[key]);
+
+        this.MergeChanges(changes);
 
         if (shouldRefreshMediaAccess) {
             try {
                 await this.GetMediaStream();
             }
             catch (err) {
-                // e.g. the screen picker was cancelled: the previous streams are still running, so go back to
-                // the settings that match them rather than claiming something is shared when it isn't
-                this.currentSettings = previousSettings;
-                this.SetCompressionParameters(previousSettings);
-                this.SetGainParameters(previousSettings);
+                // e.g. the screen picker was cancelled: the previous streams are still running, so put back only
+                // the settings this change touched, leaving anything changed in the meantime alone
+                this.MergeChanges(previousValues);
                 this.NotifySettingsChanged();
                 throw err;
             }
@@ -223,13 +261,11 @@ export class UserMedia implements IUserMedia {
             return;
         }
 
-        const settings = this.GetSettings();
-        if (!settings[settingKey].Value) {
+        if (!this.currentSettings[settingKey].Value) {
             return;
         }
 
-        settings[settingKey].Value = false;
-        this.SetSettings(settings).catch(err => console.error(err));
+        this.UpdateSettings({ [settingKey]: false }).catch(err => console.error(err));
     }
 
     private GetAudioContext(): AudioContext {
