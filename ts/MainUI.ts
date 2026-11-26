@@ -187,7 +187,7 @@ export class MainUI {
             }
 
             let nameNode = labelNode.querySelector('span.name');
-            nameNode.innerHTML = shortLocation;
+            nameNode.textContent = shortLocation;
         };
 
         this.chatApp.OnConnectionChanged = (clientId, change, category) => {
@@ -343,7 +343,7 @@ export class MainUI {
             clientNode.appendChild(labelNode);
 
             let nameNode = document.createElement("span");
-            nameNode.innerHTML = clientId.substring(0, 6);
+            nameNode.textContent = clientId.substring(0, 6);
             nameNode.className = "name";
             labelNode.appendChild(nameNode);
 
