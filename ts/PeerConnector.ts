@@ -160,6 +160,9 @@ export class PeerConnector implements IPeerConnector {
         }
         else if (data.type === 'renegotiate' || data.renegotiate === true) {
             if (this.shouldOffer) {
+                if (data.iceRestart === true) {
+                    this.pc.restartIce();
+                }
                 this.Negotiate();
             }
         }
@@ -208,6 +211,15 @@ export class PeerConnector implements IPeerConnector {
             .finally(() => this.makingOffer = false);
     }
 
+    private RestartIce(): void {
+        if (this.shouldOffer) {
+            this.pc.restartIce();
+        }
+        else {
+            this.Send({ type: 'renegotiate', renegotiate: true, iceRestart: true });
+        }
+    }
+
     private OnConnectionStateChange(): void {
         if (this.isClosed) {
             return;
@@ -235,6 +247,7 @@ export class PeerConnector implements IPeerConnector {
                         this.OnConnectionChanged('lost', 'connection');
                         this.Shutdown();
                     }, PeerConnector.disconnectedGraceMs);
+                    this.RestartIce();
                 }
                 break;
             case 'failed':

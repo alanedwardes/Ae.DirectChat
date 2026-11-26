@@ -1,6 +1,7 @@
 import { test as base, expect, Page, BrowserType, LaunchOptions } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { NetProxy } from './netproxy';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const origin = 'http://localhost';
@@ -132,7 +133,7 @@ async function openHarness(page: Page): Promise<Peers> {
     return peers;
 }
 
-export async function openLinkedPages(browserType: BrowserType, launchOptions: LaunchOptions) {
+export async function openLinkedPages(browserType: BrowserType, launchOptions: LaunchOptions, proxy?: NetProxy) {
     const browsers = [await browserType.launch(launchOptions), await browserType.launch(launchOptions)];
     const pages = [await browsers[0].newPage(), await browsers[1].newPage()];
     const peers: Peers[] = [];
@@ -142,7 +143,12 @@ export async function openLinkedPages(browserType: BrowserType, launchOptions: L
     for (const page of pages) {
         await page.exposeBinding('relayOut', (_source, from: string, json: string) => {
             const to = partner.get(from)!;
-            chain = chain.then(() => owners.get(to)?.deliver(to, json)).catch(() => { });
+            chain = chain.then(async () => {
+                const rewritten = proxy ? await proxy.rewrite(from, json) : json;
+                if (rewritten != null) {
+                    await owners.get(to)?.deliver(to, rewritten);
+                }
+            }).catch(() => { });
         });
     }
     for (const page of pages) {
@@ -156,7 +162,10 @@ export async function openLinkedPages(browserType: BrowserType, launchOptions: L
         await peers[1].remote(b, false);
         await peers[0].remote(a, true);
     };
-    const close = () => Promise.all(browsers.map(browser => browser.close().catch(() => { })));
+    const close = async () => {
+        await Promise.all(browsers.map(browser => browser.close().catch(() => { })));
+        proxy?.close();
+    };
     return { one: peers[0], two: peers[1], link, close };
 }
 
