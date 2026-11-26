@@ -47,6 +47,7 @@ export class ChatApp {
 
     public OnLocalStream: OnLocalStreamDelegate;
     public OnRemoteStream: OnRemoteStreamDelegate;
+    public OnRemoteStreamEnded: OnCloseDelegate;
     public OnConnectionChanged: OnConnectionChangedDelegate;
     public OnMessage: OnMessage;
     public OnLocation: OnClientLocation;
@@ -92,6 +93,9 @@ export class ChatApp {
         this.connectionManager.OnClose = (clientId) => this.OnClose(clientId);
         this.connectionManager.OnNeedLocalStream = () => this.localStream;
         this.connectionManager.OnHasStream = (clientId, stream) => this.OnRemoteStream(clientId, stream);
+        this.connectionManager.OnStreamEnded = (clientId) => this.OnRemoteStreamEnded(clientId);
+
+        window.addEventListener('pagehide', () => this.connectionManager.Leave());
 
         await broker.Open();
 

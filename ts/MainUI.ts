@@ -4,6 +4,7 @@ import { IUserMediaSettings, IUserMediaSetting, UserMediaSettingsRange, UserSett
 class RemoteMedia {
     public Element: HTMLDivElement;
     public Stream: MediaStream;
+    public AudioTrack: MediaStreamTrack;
 }
 
 function countryCodeToFlagEmoji(countryCode: string): string {
@@ -87,8 +88,7 @@ export class MainUI {
         }
 
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {
-            this.userMedia.AddRemoteStream(clientId, mediaStream);
-            let remoteMedia;
+            let remoteMedia: RemoteMedia;
             if (this.remoteVideo.hasOwnProperty(clientId)) {
                 remoteMedia = this.remoteVideo[clientId];
             }
@@ -101,8 +101,19 @@ export class MainUI {
                 div.appendChild(video);
                 remoteMedia = new RemoteMedia();
                 remoteMedia.Element = div;
-                remoteMedia.Stream = mediaStream;
                 this.remoteVideo[clientId] = remoteMedia;
+            }
+
+            // Only rebuild the audio graph when the audio actually changes, not on every video mute/unmute
+            const audioTrack = mediaStream.getAudioTracks()[0] ?? null;
+            if (remoteMedia.Stream !== mediaStream || remoteMedia.AudioTrack !== audioTrack) {
+                if (audioTrack != null) {
+                    this.userMedia.AddRemoteStream(clientId, mediaStream);
+                } else {
+                    this.userMedia.RemoveRemoteStream(clientId);
+                }
+                remoteMedia.Stream = mediaStream;
+                remoteMedia.AudioTrack = audioTrack;
             }
 
             let video: HTMLVideoElement = <HTMLVideoElement>remoteMedia.Element.children[0];
@@ -110,10 +121,30 @@ export class MainUI {
                 video.srcObject = mediaStream;
             }
             video.muted = true;
-            video.play();
+            video.play().catch((): void => undefined);
+
+            // A removed or muted video track leaves the last frame on screen, so hide the video instead
+            const hasLiveVideo = mediaStream.getVideoTracks().some(track => track.readyState === 'live' && !track.muted);
+            remoteMedia.Element.classList.toggle('noVideo', !hasLiveVideo);
 
             this.flowRemoteVideo();
         }
+
+        this.chatApp.OnRemoteStreamEnded = (clientId) => {
+            const remoteMedia = this.remoteVideo[clientId];
+            if (remoteMedia == null) {
+                return;
+            }
+
+            const video = <HTMLVideoElement>remoteMedia.Element.children[0];
+            video.srcObject = null;
+            remoteMedia.Element.classList.add('noVideo');
+            remoteMedia.Stream = null;
+            remoteMedia.AudioTrack = null;
+            this.userMedia.RemoveRemoteStream(clientId);
+        };
+
+        this.userMedia.OnSettingsChanged = (settings) => this.syncSettingInputs(settings);
 
         this.chatApp.OnLocalStream = (mediaStream) => {
             let video = document.querySelector<HTMLVideoElement>('#localVideo');
@@ -180,9 +211,8 @@ export class MainUI {
             this.appendLog('[' + category + '] ' + clientId.substring(0, 6) + ': ' + change);
         }
 
-        this.chatApp.OnClose = clientId => {
-            setTimeout(() => this.clientDisconnected(clientId), 15000);
-        };
+        // Only fired once the client has left or every reconnect attempt has failed
+        this.chatApp.OnClose = clientId => this.clientDisconnected(clientId);
 
         this.chatApp.Start();
 
@@ -326,12 +356,20 @@ export class MainUI {
     }
 
     public clientDisconnected(clientId: string): void {
-        let clientNode = this.getClientNode(clientId);
-        clientNode.parentElement.removeChild(clientNode);
+        // Look up without creating, so a client that's already gone doesn't get re-added (and play the join sound)
+        const clientNode = document.querySelector("#attendeeList").querySelector('li[data-connection-id="' + clientId + '"]');
+        const remoteMedia = this.remoteVideo[clientId];
+        if (clientNode == null && remoteMedia == null) {
+            return;
+        }
 
-        if (this.remoteVideo.hasOwnProperty(clientId)) {
-            let remoteMedia = this.remoteVideo[clientId];
-            remoteMedia.Element.parentElement.removeChild(remoteMedia.Element);
+        clientNode?.remove();
+
+        if (remoteMedia != null) {
+            remoteMedia.Element.remove();
+            // Forget it, so a reconnect builds a fresh tile instead of rendering into the detached one
+            delete this.remoteVideo[clientId];
+            this.flowRemoteVideo();
         }
 
         this.userMedia.RemoveRemoteStream(clientId);
@@ -423,8 +461,49 @@ export class MainUI {
         parent.appendChild(title);
     }
 
+    // Brings the settings controls back in line with the settings actually in effect,
+    // e.g. after screen sharing was stopped from the browser or a change was rolled back
+    public syncSettingInputs(settings: IUserMediaSettings): void {
+        for (let key in settings) {
+            if (!settings.hasOwnProperty(key)) {
+                continue;
+            }
+
+            const setting = settings[key];
+            if (setting.Type == UserMediaSettingType.Generic) {
+                const input = document.querySelector<HTMLInputElement>('#settingcheckbox' + key);
+                if (input != null) {
+                    input.checked = setting.Value;
+                }
+            }
+            else if (setting.Type == UserMediaSettingType.Range) {
+                const input = document.querySelector<HTMLInputElement>('#settingrange' + key);
+                const valueLabel = document.querySelector<HTMLSpanElement>('#settingvalue' + key);
+                if (input != null) {
+                    input.value = setting.Value;
+                }
+                if (valueLabel != null) {
+                    valueLabel.textContent = setting.Value;
+                }
+            }
+            else if (setting.Type == UserMediaSettingType.Select) {
+                const select = document.querySelector<HTMLSelectElement>('#settingselect-one' + key);
+                if (select != null) {
+                    select.selectedIndex = (<UserSettingsSelection<any>>setting).Options.indexOf(setting.Value);
+                }
+            }
+        }
+    }
+
     public applyNewSettings(newSettings: IUserMediaSettings) {
-        this.userMedia.SetSettings(newSettings);
+        this.userMedia.SetSettings(newSettings).catch(err => {
+            console.error(err);
+            const reason = err instanceof Error ? err.message : String(err);
+            const message = err instanceof DOMException && err.name === "NotAllowedError"
+                ? "Permission was denied or the picker was cancelled, so your settings weren't changed."
+                : "Unable to apply settings (" + reason + "), so your settings weren't changed.";
+            this.logMessage(message, "info");
+        });
 
         const oldShouldDrawVolumeHistogram: boolean = this.shouldDrawVolumeHistogram;
 
@@ -476,6 +555,7 @@ export class MainUI {
 
             let valueLabel = document.createElement("span");
             valueLabel.innerHTML = settingValue.Value;
+            valueLabel.id = "settingvalue" + settingKey;
 
             let br = document.createElement("br");
             paragraph.appendChild(br);
@@ -484,6 +564,7 @@ export class MainUI {
             paragraph.appendChild(input);
 
             input.type = "range";
+            input.id = "setting" + input.type + settingKey;
             input.step = settingValueRange.Step.toString();
             input.min = settingValueRange.Min.toString();
             input.max = settingValueRange.Max.toString();

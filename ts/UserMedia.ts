@@ -9,6 +9,7 @@ export interface IUserMedia {
     AddRemoteStream(tag: string, mediaStream: MediaStream): void;
     RemoveRemoteStream(tag: string): void;
     OnMediaStreamAvailable: OnMediaStreamAvailable;
+    OnSettingsChanged: OnSettingsChanged;
 }
 
 export enum UserMediaSettingType {
@@ -126,6 +127,10 @@ interface OnMediaStreamAvailable {
     (stream: MediaStream): void;
 }
 
+interface OnSettingsChanged {
+    (settings: IUserMediaSettings): void;
+}
+
 export class UserMedia implements IUserMedia {
     private remoteStreams: { [tag: string]: MediaStreamAudioSourceNode; } = {};
     private audioContext: AudioContext;
@@ -148,50 +153,38 @@ export class UserMedia implements IUserMedia {
     private currentSettings: IUserMediaSettings = new UserMediaSettings();
 
     public OnMediaStreamAvailable: OnMediaStreamAvailable;
+    public OnSettingsChanged: OnSettingsChanged;
     public inputStreamMonitorAudioNode: GainNode;
+
+    // Settings that need the media streams to be re-acquired when they change
+    private static readonly refreshSettingKeys: string[] = [
+        "ScreenEnabled",
+        "AudioAutoGainControl",
+        "AudioEchoCancellation",
+        "AudioNoiseSuppression",
+        "VideoEnabled",
+        "VideoResolution",
+        "VideoFrameRate",
+        "AudioStereo",
+        "AudioCompressor"
+    ];
+
+    // Serialises settings changes so two media refreshes (e.g. two screen pickers) never run at once
+    private settingsQueue: Promise<void> = Promise.resolve();
 
     public GetSettings(): IUserMediaSettings {
         return JSON.parse(JSON.stringify(this.currentSettings));
     }
 
-    public async SetSettings(newSettings: IUserMediaSettings): Promise<void> {
-        let shouldRefreshMediaAccess: boolean;
+    public SetSettings(newSettings: IUserMediaSettings): Promise<void> {
+        const result = this.settingsQueue.then(() => this.ApplySettings(newSettings));
+        this.settingsQueue = result.catch((): void => undefined);
+        return result;
+    }
 
-        if (this.currentSettings.ScreenEnabled.Value !== newSettings.ScreenEnabled.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.AudioAutoGainControl.Value !== newSettings.AudioAutoGainControl.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.AudioEchoCancellation.Value !== newSettings.AudioEchoCancellation.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.AudioNoiseSuppression.Value !== newSettings.AudioNoiseSuppression.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.VideoEnabled.Value !== newSettings.VideoEnabled.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.VideoResolution.Value !== newSettings.VideoResolution.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.VideoFrameRate.Value !== newSettings.VideoFrameRate.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.AudioStereo.Value !== newSettings.AudioStereo.Value) {
-            shouldRefreshMediaAccess = true;
-        }
-
-        if (this.currentSettings.AudioCompressor.Value !== newSettings.AudioCompressor.Value) {
-            shouldRefreshMediaAccess = true;
-        }
+    private async ApplySettings(newSettings: IUserMediaSettings): Promise<void> {
+        const previousSettings = this.currentSettings;
+        const shouldRefreshMediaAccess = UserMedia.refreshSettingKeys.some(key => previousSettings[key].Value !== newSettings[key].Value);
 
         // These are cheap so don't need to be switched on/off
         this.SetCompressionParameters(newSettings);
@@ -199,10 +192,44 @@ export class UserMedia implements IUserMedia {
 
         this.currentSettings = newSettings;
 
-        // If we should refresh media access, and there is currently a stream to refresh
         if (shouldRefreshMediaAccess) {
-            await this.GetMediaStream();
+            try {
+                await this.GetMediaStream();
+            }
+            catch (err) {
+                // e.g. the screen picker was cancelled: the previous streams are still running, so go back to
+                // the settings that match them rather than claiming something is shared when it isn't
+                this.currentSettings = previousSettings;
+                this.SetCompressionParameters(previousSettings);
+                this.SetGainParameters(previousSettings);
+                this.NotifySettingsChanged();
+                throw err;
+            }
         }
+
+        this.NotifySettingsChanged();
+    }
+
+    private NotifySettingsChanged(): void {
+        if (this.OnSettingsChanged != null) {
+            this.OnSettingsChanged(this.GetSettings());
+        }
+    }
+
+    // The browser ended a video track itself, e.g. its "Stop sharing" bar was used or the camera was unplugged
+    private OnVideoTrackEnded(track: MediaStreamTrack, settingKey: string): void {
+        if (!this.inputTracks.includes(track)) {
+            // Already replaced by a newer stream
+            return;
+        }
+
+        const settings = this.GetSettings();
+        if (!settings[settingKey].Value) {
+            return;
+        }
+
+        settings[settingKey].Value = false;
+        this.SetSettings(settings).catch(err => console.error(err));
     }
 
     private GetAudioContext(): AudioContext {
@@ -321,7 +348,10 @@ export class UserMedia implements IUserMedia {
 
         let inputStream = inputStreamNode.stream;
         if (videoTracks.length > 0) {
-            inputStream.addTrack(videoTracks[0]);
+            const videoTrack = videoTracks[0];
+            const settingKey = this.currentSettings.ScreenEnabled.Value ? "ScreenEnabled" : "VideoEnabled";
+            videoTrack.addEventListener('ended', () => this.OnVideoTrackEnded(videoTrack, settingKey));
+            inputStream.addTrack(videoTrack);
         }
 
         this.inputNodes.push(this.inputStreamMonitorAudioNode, inputStreamNode);

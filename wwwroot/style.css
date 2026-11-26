@@ -186,6 +186,10 @@ form input[type=checkbox] {
     object-fit: contain;
 }
 
+.remoteVideo.noVideo>video {
+    visibility: hidden;
+}
+
 #attendeeList {
     width: 512px;
 }
