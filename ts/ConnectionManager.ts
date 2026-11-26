@@ -51,7 +51,7 @@ interface Peer {
 //    the receiver should do the same and pair with it.
 //  - "leave": the sender is closing the page; the receiver should forget it without retrying.
 // Every signal carries connectionFrom/connectionTo, so signals left over from a replaced connector are dropped
-// instead of being fed to (and breaking) its replacement. simple-peer ignores the extra fields, so clients
+// instead of being fed to (and breaking) its replacement. PeerConnector ignores the extra fields, so clients
 // running older code still understand the signals.
 export class ConnectionManager {
     private static readonly retryDelaysMs: number[] = [1000, 3000, 10000, 20000];
@@ -121,7 +121,7 @@ export class ConnectionManager {
         peerConnector.OnConnect = () => delete this.retryAttempts[fromId];
         peerConnector.OnClose = () => this.ProcessClose(fromId, peerConnector);
         peerConnector.OnHasStream = stream => this.OnHasStream(fromId, stream);
-        peerConnector.OnSendMessage = (payload: any, type: string) => this.broker.Send(
+        peerConnector.OnSendMessage = (payload: any, type: string) => this.TrySend(
             { ...payload, connectionFrom: peer.localId, connectionTo: peer.remoteId }, type, fromId);
         this.peers[fromId] = peer;
         peerConnector.SendStream(this.OnNeedLocalStream());

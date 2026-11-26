@@ -2,3 +2,6 @@ bin/
 obj/
 .git/
 wwwroot/js/
+node_modules/
+test-results/
+playwright-report/

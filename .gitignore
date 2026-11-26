@@ -4,3 +4,6 @@ obj/
 wwwroot/js/
 .env
 geoip/
+node_modules/
+test-results/
+playwright-report/

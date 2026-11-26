@@ -1,0 +1,17 @@
+{
+  "name": "ae-directchat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:ts": "tsc -p tsconfig.json",
+    "test": "npm run test:unit && npm run test:browser && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:browser": "npm run build:ts && playwright test",
+    "test:e2e": "npm run build:ts && playwright test -c playwright.e2e.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.2"
+  }
+}
