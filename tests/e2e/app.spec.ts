@@ -106,3 +106,29 @@ test('chromium and firefox in the same room', async ({ playwright }) => {
     await expectRemotes(a, { audio: 1, video: 1 });
     await expectRemotes(b, { audio: 1, video: 1 });
 });
+
+test('settings are saved and restored, but camera and URL options are not', async ({ playwright }) => {
+    const room = randomUUID();
+    const page = await join(playwright.chromium, room);
+    await page.click('#audioControlsButton');
+    await page.locator('#settingcheckboxAudioStereo').setChecked(true);
+    await page.locator('#settingrangeAudioGain').fill('3');
+    await setVideo(page, true);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('ae.directchat.settings')))
+        .toBe(JSON.stringify({ AudioStereo: true, AudioGain: 3 }));
+
+    // Out-of-range and invalid stored values are clamped or dropped; URL options are ignored
+    await page.evaluate(() => localStorage.setItem('ae.directchat.settings',
+        JSON.stringify({ AudioStereo: true, AudioGain: 999, VideoResolution: '<b>x</b>', VideoEnabled: true })));
+    await page.goto('/' + room + '?VideoEnabled=true&AudioGain=2');
+    await expect(page.locator('#settingcheckboxAudioStereo')).toBeChecked();
+    await expect(page.locator('#settingrangeAudioGain')).toHaveValue('5');
+    await expect(page.locator('#settingcheckboxVideoEnabled')).not.toBeChecked();
+    await expect(page.locator('#settingselect-oneVideoResolution')).toHaveValue('720p');
+
+    await page.click('#audioControlsButton');
+    await page.click('#resetSettingsButton');
+    await expect(page.locator('#settingcheckboxAudioStereo')).not.toBeChecked();
+    await expect(page.locator('#settingrangeAudioGain')).toHaveValue('1');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('ae.directchat.settings'))).toBeNull();
+});

@@ -1,5 +1,6 @@
 import { ChatApp } from "./ChatApp.js";
 import { IUserMediaSettings, IUserMediaSetting, SettingChanges, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia.js";
+import { loadSettings, saveSettings, defaultSettings } from "./SettingsStore.js";
 
 class RemoteMedia {
     public Element: HTMLDivElement;
@@ -59,33 +60,14 @@ export class MainUI {
         this.chatApp.OnMessage = (messageText, messageType) => this.logMessage(messageText, messageType);
         this.chatApp.OnLog = (line) => this.appendLog(line);
 
-        if (window.location.search.startsWith('?')) {
-            let settings: IUserMediaSettings = this.userMedia.GetSettings();
-            let changes: SettingChanges = {};
-
-            let search = window.location.search.substring(1).split('&');
-            for (let i = 0; i < search.length; i++) {
-                let parts = search[i].split('=').filter(decodeURIComponent);
-                let settingName = parts[0];
-                let settingValue = parts[1];
-
-                if (!settings.hasOwnProperty(settingName)) {
-                    continue;
-                }
-
-                let settingTypedValue;
-                try {
-                    settingTypedValue = this.parseStringToType(settingValue, typeof (settings[settingName].Value))
-                }
-                catch (err) {
-                    this.logMessage("Unable to parse value for setting " + settingName + ". Please ensure it is of the right type and try again.", "fatal");
-                    return;
-                }
-
-                changes[settingName] = settingTypedValue;
+        // Restore saved settings before media is acquired (chatApp.Start below), so they apply from the start
+        const defaults: IUserMediaSettings = this.userMedia.GetSettings();
+        const saved: SettingChanges = loadSettings(defaults);
+        if (Object.keys(saved).length > 0) {
+            this.userMedia.RestoreSettings(saved);
+            if (saved.hasOwnProperty("AudioLocalMeter")) {
+                this.shouldDrawVolumeHistogram = saved["AudioLocalMeter"];
             }
-
-            this.applyNewSettings(changes);
         }
 
         this.chatApp.OnRemoteStream = (clientId, mediaStream) => {
@@ -145,7 +127,11 @@ export class MainUI {
             this.userMedia.RemoveRemoteStream(clientId);
         };
 
-        this.userMedia.OnSettingsChanged = (settings) => this.syncSettingInputs(settings);
+        // Fires with the settings actually in effect (after any rollback), so that's what gets saved
+        this.userMedia.OnSettingsChanged = (settings) => {
+            this.syncSettingInputs(settings);
+            saveSettings(settings, defaults);
+        };
 
         this.chatApp.OnLocalStream = (mediaStream) => {
             let video = document.querySelector<HTMLVideoElement>('#localVideo');
@@ -244,6 +230,16 @@ export class MainUI {
                 this.createSetting(key, settings[key], parentElement);
             }
         }
+
+        const resetParagraph = document.createElement("p");
+        const resetButton = document.createElement("button");
+        resetButton.type = "button";
+        resetButton.id = "resetSettingsButton";
+        resetButton.textContent = "Reset saved settings";
+        resetButton.title = "Restore the default audio and video quality settings and forget the saved ones";
+        resetButton.addEventListener("click", () => this.applyNewSettings(defaultSettings(defaults)));
+        resetParagraph.appendChild(resetButton);
+        document.querySelector('#audioParameters').appendChild(resetParagraph);
 
         document.querySelector('#audioControlsButton').addEventListener('click', () => {
             document.querySelector('#audioControls').classList.remove("hidden");
@@ -780,26 +776,5 @@ export class MainUI {
         }
         context.fillStyle = "rgba(0, 0, 255, 0.5)";
         context.fill();
-    }
-
-    public parseStringToType(input: string, type: string) {
-        if (type === "boolean") {
-            if (input.toLowerCase() === "true") {
-                return true;
-            }
-
-            if (input.toLowerCase() === "false") {
-                return false;
-            }
-        }
-
-        if (type === "number") {
-            let value = parseFloat(input);
-            if (!isNaN(value)) {
-                return value;
-            }
-        }
-
-        throw "Error parsing " + input + " to " + type;
     }
 }

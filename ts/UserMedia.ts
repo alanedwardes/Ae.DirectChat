@@ -3,6 +3,7 @@ export interface IUserMedia {
     RefreshMediaStream(): Promise<MediaStream>;
     GetSettings(): UserMediaSettings;
     UpdateSettings(changes: SettingChanges): Promise<void>;
+    RestoreSettings(changes: SettingChanges): void;
     SampleInputTimeDomain(): Float32Array;
     SampleOutputTimeDomain(): Float32Array;
     SampleInputFrequency(): Uint8Array;
@@ -194,6 +195,12 @@ export class UserMedia implements IUserMedia {
         }
 
         return this.Enqueue(() => this.ApplyChanges(changes));
+    }
+
+    // Applies saved settings before media is first acquired, so it doesn't trigger a media refresh
+    public RestoreSettings(changes: SettingChanges): void {
+        this.MergeChanges(changes);
+        this.NotifySettingsChanged();
     }
 
     // Acquires media after any settings changes already queued (e.g. ones from the URL), so it uses those settings
