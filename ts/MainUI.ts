@@ -26,10 +26,10 @@ export class MainUI {
         this.userMedia = userMedia;
 
         this.joinSound = document.createElement("audio");
-        this.joinSound.src = "https://s.alanedwardes.com/633bc8cc-fc86-4ad1-a1fe-46d815dc4e29.mp3";
+        this.joinSound.src = "sounds/join.mp3";
 
         this.leaveSound = document.createElement("audio");
-        this.leaveSound.src = "https://s.alanedwardes.com/59e427ea-fd86-4642-80a0-6fe6eba887d4.mp3";
+        this.leaveSound.src = "sounds/leave.mp3";
     }
 
     public initialise(): void {
@@ -56,6 +56,28 @@ export class MainUI {
 
         window.onmousemove = () => ShowControls();
         window.ontouchstart = () => ShowControls();
+        window.addEventListener('keydown', () => ShowControls());
+        window.addEventListener('focusin', () => ShowControls());
+
+        const enableAudioButton = document.querySelector<HTMLButtonElement>('#enableAudioButton');
+        this.userMedia.OnAudioStateChanged = blocked => enableAudioButton.classList.toggle('hidden', !blocked);
+        const resumeAudio = () => {
+            if (this.userMedia.IsAudioBlocked) {
+                this.userMedia.ResumeAudio().catch((): void => undefined);
+            }
+        };
+        window.addEventListener('pointerdown', resumeAudio, true);
+        window.addEventListener('keydown', resumeAudio, true);
+        enableAudioButton.addEventListener('click', resumeAudio);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                resumeAudio();
+            }
+        });
+
+        if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
+            document.querySelector('#screenControlsButton').classList.add('hidden');
+        }
 
         this.chatApp.OnMessage = (messageText, messageType) => this.logMessage(messageText, messageType);
         this.chatApp.OnLog = (line) => this.appendLog(line);
@@ -80,6 +102,8 @@ export class MainUI {
                 document.querySelector('#remoteVideo').appendChild(div);
 
                 let video = document.createElement("video");
+                video.playsInline = true;
+                video.muted = true;
                 div.appendChild(video);
                 remoteMedia = new RemoteMedia();
                 remoteMedia.Element = div;
@@ -134,7 +158,8 @@ export class MainUI {
         this.chatApp.OnLocalStream = (mediaStream) => {
             let video = document.querySelector<HTMLVideoElement>('#localVideo');
             video.srcObject = mediaStream;
-            video.play();
+            video.play().catch((): void => undefined);
+            video.classList.toggle('noVideo', mediaStream.getVideoTracks().length === 0);
             this.updateLocalStatus(mediaStream);
         }
 
@@ -239,36 +264,51 @@ export class MainUI {
         resetParagraph.appendChild(resetButton);
         document.querySelector('#audioParameters').appendChild(resetParagraph);
 
-        document.querySelector('#audioControlsButton').addEventListener('click', () => {
-            document.querySelector('#audioControls').classList.remove("hidden");
+        document.querySelectorAll<HTMLButtonElement>('.controls button[data-panel]').forEach(button => {
+            button.setAttribute('aria-pressed', 'false');
+            button.addEventListener('click', () => this.togglePanel(button.dataset.panel));
+        });
 
+        document.querySelectorAll('.window > .closeButton').forEach(element => {
+            element.addEventListener('click', () => this.showPanel(null));
+        });
+
+        window.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                this.showPanel(null);
+            }
+        });
+
+        const portrait = window.matchMedia('(orientation: portrait)');
+        const relayout = () => this.flowRemoteVideo();
+        if (typeof portrait.addEventListener === 'function') {
+            portrait.addEventListener('change', relayout);
+        } else {
+            portrait.addListener(relayout);
+        }
+    }
+
+    private openPanelId: string = null;
+
+    public togglePanel(panelId: string): void {
+        this.showPanel(this.openPanelId === panelId ? null : panelId);
+    }
+
+    public showPanel(panelId: string): void {
+        this.openPanelId = panelId;
+
+        document.querySelectorAll<HTMLElement>('#panels > .window').forEach(panel => panel.classList.toggle('hidden', panel.id !== panelId));
+        document.querySelectorAll<HTMLButtonElement>('.controls button[data-panel]').forEach(button =>
+            button.setAttribute('aria-pressed', String(button.dataset.panel === panelId)));
+        document.body.classList.toggle('panelOpen', panelId != null);
+
+        if (panelId === 'audioControls') {
             this.drawAudioVisualisations();
-        });
-
-        document.querySelector('#videoControlsButton').addEventListener('click', () => {
-            document.querySelector('#videoControls').classList.remove("hidden");
-        });
-
-        document.querySelector('#screenControlsButton').addEventListener('click', () => {
-            document.querySelector('#screenControls').classList.remove("hidden");
-        });
-
-        document.querySelector('#attendeeWindowButton').addEventListener('click', () => {
-            document.querySelector('#attendeeWindow').classList.remove("hidden");
-        });
-
-        document.querySelector('#logWindowButton').addEventListener('click', () => {
+        }
+        else if (panelId === 'logWindow') {
             const logWindow = document.querySelector('#logWindow');
-            logWindow.classList.remove("hidden");
             logWindow.scrollTop = logWindow.scrollHeight;
-        });
-
-        document.querySelectorAll('.closeButton').forEach(element => {
-            element.addEventListener('click', event => {
-                let sourceElement = <HTMLButtonElement>event.srcElement;
-                sourceElement.parentElement.classList.add("hidden");
-            });
-        });
+        }
     }
 
     private static readonly maxLogItems: number = 500;
@@ -316,14 +356,6 @@ export class MainUI {
         }
     }
 
-    public countryCodeEmoji(country: string): string {
-        const offset = 127397;
-        const f = country.codePointAt(0);
-        const s = country.codePointAt(1);
-
-        return String.fromCodePoint(f + offset) + String.fromCodePoint(s + offset);
-    }
-
     public getClientNode(clientId: string): HTMLLIElement {
         const attendeeList = document.querySelector("#attendeeList");
 
@@ -343,7 +375,7 @@ export class MainUI {
 
             attendeeList.appendChild(clientNode);
 
-            this.joinSound.play();
+            this.joinSound.play().catch((): void => undefined);
             this.logMessage("Someone connected!", "info");
         }
 
@@ -369,7 +401,7 @@ export class MainUI {
 
         this.userMedia.RemoveRemoteStream(clientId);
 
-        this.leaveSound.play();
+        this.leaveSound.play().catch((): void => undefined);
     }
 
     public updateLocalStatus(mediaStream: MediaStream): void {
@@ -429,25 +461,14 @@ export class MainUI {
     }
 
     public flowRemoteVideo() {
-        let videos = Array.prototype.slice.call(document.querySelectorAll('.remoteVideo'));
-        let videoCount = videos.length;
-        //let rowCount = Math.ceil(videoCount / 2);
-        let columnCount = Math.ceil(videoCount / 2);
+        const count = Math.max(1, document.querySelectorAll('#remoteVideo .remoteVideo').length);
+        const long = Math.ceil(Math.sqrt(count));
+        const short = Math.ceil(count / long);
+        const portrait = window.matchMedia('(orientation: portrait)').matches;
 
-        let currentColumn = 0;
-        let currentRow = 0;
-
-        while (videos.length > 0) {
-            let video = videos.pop();
-
-            video.style['grid-area'] = (currentRow + 1) + " / " + (currentColumn + 1) + " / span 1 / span 1";
-
-            currentColumn++;
-            if (currentColumn > columnCount - 1) {
-                currentColumn = 0;
-                currentRow++;
-            }
-        }
+        const container = document.querySelector<HTMLElement>('#remoteVideo');
+        container.style.setProperty('--cols', String(portrait ? short : long));
+        container.style.setProperty('--rows', String(portrait ? long : short));
     }
 
     public createCategoryTitle(category: string, parent: HTMLElement) {
@@ -525,8 +546,8 @@ export class MainUI {
             input.type = "checkbox";
             input.id = "setting" + input.type + settingKey;
             input.checked = settingValue.Value;
-            input.oninput = (event) => {
-                let sourceElement: HTMLInputElement = <HTMLInputElement>event.srcElement;
+            input.onchange = (event) => {
+                let sourceElement: HTMLInputElement = <HTMLInputElement>event.currentTarget;
                 this.applyNewSettings({ [settingKey]: sourceElement.checked });
             };
 
@@ -549,8 +570,10 @@ export class MainUI {
             paragraph.appendChild(label);
 
             let valueLabel = document.createElement("span");
-            valueLabel.innerHTML = settingValue.Value;
+            valueLabel.textContent = settingValue.Value;
             valueLabel.id = "settingvalue" + settingKey;
+            valueLabel.className = "settingValue";
+            paragraph.appendChild(valueLabel);
 
             let br = document.createElement("br");
             paragraph.appendChild(br);
@@ -565,17 +588,16 @@ export class MainUI {
             input.max = settingValueRange.Max.toString();
             input.value = settingValue.Value;
             input.oninput = (event) => {
-                let sourceElement = <HTMLInputElement>event.srcElement;
-                valueLabel.innerHTML = sourceElement.value;
+                let sourceElement = <HTMLInputElement>event.currentTarget;
+                valueLabel.textContent = sourceElement.value;
             };
 
             input.onchange = (event) => {
-                let sourceElement = <HTMLInputElement>event.srcElement;
+                let sourceElement = <HTMLInputElement>event.currentTarget;
                 // Range values are numbers; passing the input's string would look like a change every time
                 this.applyNewSettings({ [settingKey]: Number(sourceElement.value) });
             };
 
-            paragraph.appendChild(valueLabel);
         }
         else if (settingValue.Type == UserMediaSettingType.Select) {
             let settingValueOptions = <UserSettingsSelection<any>>settingValue;
@@ -600,8 +622,8 @@ export class MainUI {
             select.selectedIndex = settingValueOptions.Options.indexOf(settingValue.Value);
 
             select.id = "setting" + select.type + settingKey;
-            select.oninput = (event) => {
-                let sourceElement = <HTMLSelectElement>event.srcElement;
+            select.onchange = (event) => {
+                let sourceElement = <HTMLSelectElement>event.currentTarget;
                 this.applyNewSettings({ [settingKey]: settingValueOptions.Options[sourceElement.selectedIndex] });
             };
 

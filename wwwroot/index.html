@@ -1,51 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#222">
     <title>Direct Chat - Alan Edwardes</title>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
 
 <body>
-    <div class="messages"></div>
     <div id="remoteVideo"></div>
-    <div class="controls">
-        <button id="audioControlsButton">🎤 Audio</button>
-        <button id="videoControlsButton">📷 Video</button>
-        <button id="screenControlsButton">🖥️ Screen</button>
-        <button id="attendeeWindowButton">🧍 Attendees</button>
-        <button id="logWindowButton">📜 Logs</button>
+    <video muted playsinline autoplay id="localVideo"></video>
+    <div class="messages" aria-live="polite"></div>
+    <button id="enableAudioButton" class="hidden">🔊 Tap to enable sound</button>
+
+    <div id="panels">
+        <section id="audioControls" class="window hidden" aria-label="Audio">
+            <button class="closeButton" aria-label="Close">✕</button>
+            <h1>🎤 Audio</h1>
+            <canvas id="volumeHistogramCanvas" width="465" height="64"></canvas>
+            <form id="audioParameters"></form>
+        </section>
+        <section id="videoControls" class="window hidden" aria-label="Video">
+            <button class="closeButton" aria-label="Close">✕</button>
+            <h1>📷 Video</h1>
+            <form id="videoParameters"></form>
+        </section>
+        <section id="screenControls" class="window hidden" aria-label="Screen">
+            <button class="closeButton" aria-label="Close">✕</button>
+            <h1>🖥️ Screen</h1>
+            <form id="screenParameters"></form>
+        </section>
+        <section id="attendeeWindow" class="window hidden" aria-label="Attendees">
+            <button class="closeButton" aria-label="Close">✕</button>
+            <h1>🧍 Attendees</h1>
+            <ol id="attendeeList"></ol>
+        </section>
+        <section id="logWindow" class="window hidden" aria-label="Logs">
+            <button class="closeButton" aria-label="Close">✕</button>
+            <h1>📜 Logs</h1>
+            <ol id="logList"></ol>
+        </section>
     </div>
-    <div style="clear:both"></div>
-    <div id="audioControls" class="window">
-        <button class="closeButton">✕</button>
-        <h1>🎤 Audio</h1>
-        <canvas id="volumeHistogramCanvas" width="465" height="64"></canvas>
-        <form id="audioParameters"></form>
-    </div>
-    <div id="videoControls" class="window hidden">
-        <button class="closeButton">✕</button>
-        <h1>📷 Video</h1>
-        <form id="videoParameters"></form>
-    </div>
-    <div id="screenControls" class="window hidden">
-        <button class="closeButton">✕</button>
-        <h1>🖥️ Screen</h1>
-        <form id="screenParameters"></form>
-    </div>
-    <div id="attendeeWindow" class="window">
-        <button class="closeButton">✕</button>
-        <h1>🧍 Attendees</h1>
-        <ol id="attendeeList"></ol>
-    </div>
-    <div id="logWindow" class="window hidden">
-        <button class="closeButton">✕</button>
-        <h1>📜 Logs</h1>
-        <ol id="logList"></ol>
-    </div>
-    <video muted id="localVideo"></video>
+
+    <nav class="controls">
+        <button id="audioControlsButton" data-panel="audioControls" title="Audio"><span class="icon">🎤</span><span class="text">Audio</span></button>
+        <button id="videoControlsButton" data-panel="videoControls" title="Video"><span class="icon">📷</span><span class="text">Video</span></button>
+        <button id="screenControlsButton" data-panel="screenControls" title="Screen"><span class="icon">🖥️</span><span class="text">Screen</span></button>
+        <button id="attendeeWindowButton" data-panel="attendeeWindow" title="Attendees"><span class="icon">🧍</span><span class="text">Attendees</span></button>
+        <button id="logWindowButton" data-panel="logWindow" title="Logs"><span class="icon">📜</span><span class="text">Logs</span></button>
+    </nav>
     <script type="module" src="js/Entry.js"></script>
 </body>
 

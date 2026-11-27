@@ -45,7 +45,9 @@ async function expectRemotes(page: Page, expected: { audio: number; video: numbe
 }
 
 async function setVideo(page: Page, on: boolean) {
-    await page.click('#videoControlsButton');
+    if (!await page.locator('#videoControls').isVisible()) {
+        await page.click('#videoControlsButton');
+    }
     await page.locator('#settingcheckboxVideoEnabled').setChecked(on);
 }
 

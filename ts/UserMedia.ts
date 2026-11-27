@@ -10,8 +10,11 @@ export interface IUserMedia {
     SampleOutputFrequency(): Uint8Array;
     AddRemoteStream(tag: string, mediaStream: MediaStream): void;
     RemoveRemoteStream(tag: string): void;
+    ResumeAudio(): Promise<void>;
+    readonly IsAudioBlocked: boolean;
     OnMediaStreamAvailable: OnMediaStreamAvailable;
     OnSettingsChanged: OnSettingsChanged;
+    OnAudioStateChanged: (blocked: boolean) => void;
 }
 
 export enum UserMediaSettingType {
@@ -161,6 +164,7 @@ export class UserMedia implements IUserMedia {
 
     public OnMediaStreamAvailable: OnMediaStreamAvailable;
     public OnSettingsChanged: OnSettingsChanged;
+    public OnAudioStateChanged: (blocked: boolean) => void;
     public inputStreamMonitorAudioNode: GainNode;
 
     // Settings that need the media streams to be re-acquired when they change
@@ -275,17 +279,34 @@ export class UserMedia implements IUserMedia {
     }
 
     private GetAudioContext(): AudioContext {
-        const windowDictionary = window as { [key: string]: any };
-
-        // Fall back to webkit audio context
-        let audioContext = windowDictionary['AudioContext'] || windowDictionary['webkitAudioContext'];
-
         // Lazy initialise the audio context
         if (this.audioContext == null) {
-            this.audioContext = new audioContext();
+            this.audioContext = new AudioContext();
+            this.audioContext.onstatechange = () => this.CheckAudioState();
+            this.CheckAudioState();
         }
 
         return this.audioContext;
+    }
+
+    public get IsAudioBlocked(): boolean {
+        return this.audioContext != null && this.audioContext.state !== "running" && this.audioContext.state !== "closed";
+    }
+
+    private CheckAudioState(): void {
+        if (this.IsAudioBlocked) {
+            this.audioContext.resume().catch((): void => undefined);
+        }
+        if (this.OnAudioStateChanged != null) {
+            this.OnAudioStateChanged(this.IsAudioBlocked);
+        }
+    }
+
+    public ResumeAudio(): Promise<void> {
+        if (!this.IsAudioBlocked) {
+            return Promise.resolve();
+        }
+        return this.audioContext.resume();
     }
 
     public AddRemoteStream(tag: string, mediaStream: MediaStream): void {
