@@ -26,6 +26,9 @@ export class Broker implements IBroker {
 
     public OnMessage: OnMessageDelegate;
     public OnTraffic: OnTrafficDelegate;
+    public OnRejected: (reason: string) => void;
+    // Matches SignallingHandler.RoomFullCloseStatus
+    private static readonly roomFullCloseCode: number = 4000;
     private readonly sessionConfig: ISessionConfig;
     private pingIntervalHandle: number = 0;
 
@@ -39,10 +42,16 @@ export class Broker implements IBroker {
         this.socket = new WebSocket(wsUrl);
         this.socket.onmessage = (event: MessageEvent) => this.OnMessageInternal(event);
         this.socket.onerror = (event: ErrorEvent) => console.error(event);
-        this.socket.onclose = () => {
+        this.socket.onclose = (event: CloseEvent) => {
             if (this.pingIntervalHandle) {
                 clearInterval(this.pingIntervalHandle);
                 this.pingIntervalHandle = 0;
+            }
+            if (event.code === Broker.roomFullCloseCode) {
+                if (this.OnRejected) {
+                    this.OnRejected("This room is full.");
+                }
+                return;
             }
             this.Open();
         };

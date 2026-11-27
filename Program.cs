@@ -12,6 +12,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.ForwardLimit = 1;
 });
 
+// Comma-separated; unset allows any origin
+var allowedOrigins = (builder.Configuration["ALLOWED_ORIGINS"] ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
 var app = builder.Build();
 app.UseForwardedHeaders();
 app.UseDefaultFiles();
@@ -23,6 +28,12 @@ app.Map("/ws", async (HttpContext context, SignallingHandler handler) =>
     if (!context.WebSockets.IsWebSocketRequest)
     {
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    if (allowedOrigins.Count > 0 && !allowedOrigins.Contains(context.Request.Headers.Origin.ToString()))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return;
     }
 

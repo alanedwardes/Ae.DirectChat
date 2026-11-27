@@ -60,7 +60,6 @@ export class MainUI {
         this.chatApp.OnMessage = (messageText, messageType) => this.logMessage(messageText, messageType);
         this.chatApp.OnLog = (line) => this.appendLog(line);
 
-        // Restore saved settings before media is acquired (chatApp.Start below), so they apply from the start
         const defaults: IUserMediaSettings = this.userMedia.GetSettings();
         const saved: SettingChanges = loadSettings(defaults);
         if (Object.keys(saved).length > 0) {
@@ -127,7 +126,6 @@ export class MainUI {
             this.userMedia.RemoveRemoteStream(clientId);
         };
 
-        // Fires with the settings actually in effect (after any rollback), so that's what gets saved
         this.userMedia.OnSettingsChanged = (settings) => {
             this.syncSettingInputs(settings);
             saveSettings(settings, defaults);

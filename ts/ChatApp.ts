@@ -74,6 +74,7 @@ export class ChatApp {
         }
 
         const broker: IBroker = new Broker(this.sessionConfig);
+        (broker as Broker).OnRejected = reason => this.OnMessage(reason, "fatal");
         (broker as any).OnTraffic = (direction: string, data: any) => {
             if (this.OnLog) {
                 try {

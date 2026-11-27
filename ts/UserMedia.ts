@@ -197,7 +197,6 @@ export class UserMedia implements IUserMedia {
         return this.Enqueue(() => this.ApplyChanges(changes));
     }
 
-    // Applies saved settings before media is first acquired, so it doesn't trigger a media refresh
     public RestoreSettings(changes: SettingChanges): void {
         this.MergeChanges(changes);
         this.NotifySettingsChanged();

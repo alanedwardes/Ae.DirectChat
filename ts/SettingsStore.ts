@@ -1,7 +1,6 @@
 import { IUserMediaSettings, SettingChanges, UserMediaSettingType } from "./UserMedia.js";
 
-// Settings remembered between visits. Deliberately excludes VideoEnabled, ScreenEnabled and AudioEnabled,
-// so a new session never starts sending camera/screen, or starts muted, without the user choosing to.
+// VideoEnabled, ScreenEnabled and AudioEnabled are deliberately not saved
 const persistedKeys: string[] = [
     "AudioEchoCancellation",
     "AudioAutoGainControl",
@@ -22,7 +21,6 @@ const persistedKeys: string[] = [
 
 const storageKey: string = "ae.directchat.settings";
 
-// Returns the value if it's valid for the setting, otherwise undefined
 function validate(settings: IUserMediaSettings, key: string, value: unknown): unknown {
     const setting = settings[key];
     if (setting == null) {
@@ -44,7 +42,6 @@ function validate(settings: IUserMediaSettings, key: string, value: unknown): un
     }
 }
 
-// Reads the saved settings, dropping anything unknown or invalid (storage is user-editable)
 export function loadSettings(settings: IUserMediaSettings): SettingChanges {
     let stored: unknown;
     try {
@@ -69,8 +66,6 @@ export function loadSettings(settings: IUserMediaSettings): SettingChanges {
     return changes;
 }
 
-// Saves only the settings that differ from the defaults, so changing a default in code still reaches
-// users who never touched that setting
 export function saveSettings(settings: IUserMediaSettings, defaults: IUserMediaSettings): void {
     const changed: SettingChanges = {};
     for (const key of persistedKeys) {
@@ -86,11 +81,9 @@ export function saveSettings(settings: IUserMediaSettings, defaults: IUserMediaS
             window.localStorage.setItem(storageKey, JSON.stringify(changed));
         }
     } catch {
-        // Storage unavailable (e.g. disabled, or full); settings just won't be remembered
     }
 }
 
-// The default values of every persisted setting, for resetting
 export function defaultSettings(defaults: IUserMediaSettings): SettingChanges {
     const changes: SettingChanges = {};
     for (const key of persistedKeys) {

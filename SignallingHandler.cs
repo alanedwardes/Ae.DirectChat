@@ -2,9 +2,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +20,14 @@ namespace AeChat
         // SDP offers are typically a few KB; anything this large is not legitimate signalling
         private const int MaxMessageBytes = 64 * 1024;
 
+        private const int MaxClientsPerRoom = 16;
+
+        public const int RoomFullCloseStatus = 4000;
+
+        private static readonly TimeSpan JoinTimeout = TimeSpan.FromSeconds(10);
+
+        private static readonly TimeSpan ReleasedIdHold = TimeSpan.FromMinutes(5);
+
         // Peer-to-peer messages clients may relay to each other. Everything else (notably "location",
         // which only the server may originate) is dropped.
         private static readonly HashSet<string> RelayableTypes = new(StringComparer.Ordinal)
@@ -27,18 +35,17 @@ namespace AeChat
             "offer", "answer", "candidate", "renegotiate", "transceiverRequest", "reconnect", "leave"
         };
 
+        private enum JoinResult { Joined, RoomFull, IdTaken }
+
+        // Written only under joinLock
         private readonly ConcurrentDictionary<(Guid RoomId, Guid ClientId), ChatSession> sessions = new();
+        private readonly Dictionary<Guid, int> roomSizes = new();
+        private readonly Dictionary<(Guid RoomId, Guid ClientId), (Guid SessionId, DateTime Expires)> releasedIds = new();
+        private readonly object joinLock = new();
+        private DateTime lastReleasedIdSweep = DateTime.UtcNow;
+
         private readonly ConcurrentDictionary<string, CityResponse> cityResponses = new();
         private readonly DatabaseReader geoIp;
-
-        // The identity a socket registered with its first "discover". Every later message from the socket is
-        // stamped with this identity, so a client can't speak as anyone else or into another room.
-        private sealed class Connection
-        {
-            public WebSocket Socket { get; init; }
-            public IPAddress RemoteIp { get; init; }
-            public ChatSession Session { get; set; }
-        }
 
         public SignallingHandler(ILogger<SignallingHandler> logger)
         {
@@ -55,8 +62,12 @@ namespace AeChat
 
         public async Task HandleConnectionAsync(WebSocket socket, IPAddress remoteIp, CancellationToken cancellationToken)
         {
-            var connection = new Connection { Socket = socket, RemoteIp = remoteIp };
+            var connection = new ClientConnection(socket, remoteIp);
             var buffer = new byte[8 * 1024];
+
+            using var receiveCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            receiveCancellation.CancelAfter(JoinTimeout);
+            var token = receiveCancellation.Token;
 
             try
             {
@@ -66,15 +77,15 @@ namespace AeChat
                     WebSocketReceiveResult result;
                     do
                     {
-                        result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                        result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), token);
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, cancellationToken);
+                            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token);
                             return;
                         }
                         if (messageStream.Length + result.Count > MaxMessageBytes)
                         {
-                            await socket.CloseAsync(WebSocketCloseStatus.MessageTooBig, null, cancellationToken);
+                            await socket.CloseAsync(WebSocketCloseStatus.MessageTooBig, null, token);
                             return;
                         }
                         messageStream.Write(buffer, 0, result.Count);
@@ -90,21 +101,26 @@ namespace AeChat
                         continue;
                     }
 
-                    if (envelope != null)
+                    if (envelope == null)
                     {
-                        await ProcessMessage(envelope, connection);
+                        continue;
+                    }
+
+                    var wasJoined = connection.Session != null;
+                    await ProcessMessage(envelope, connection, token);
+                    if (!wasJoined && connection.Session != null)
+                    {
+                        receiveCancellation.CancelAfter(Timeout.InfiniteTimeSpan);
                     }
                 }
             }
-            catch (WebSocketException)
-            {
-            }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or ObjectDisposedException)
             {
             }
             finally
             {
                 RemoveConnection(connection);
+                await connection.CompleteAsync();
             }
         }
 
@@ -133,23 +149,23 @@ namespace AeChat
             }
         }
 
-        private async Task ProcessMessage(Envelope envelope, Connection connection)
+        private async Task ProcessMessage(Envelope envelope, ClientConnection connection, CancellationToken token)
         {
             if (envelope.Type == "ping")
             {
-                await SendRaw(connection.Socket, "{\"type\":\"pong\"}");
+                connection.Send("{\"type\":\"pong\"}");
                 return;
             }
 
             if (envelope.Type == "disconnect")
             {
-                await connection.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                await connection.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token);
                 return;
             }
 
             if (envelope.Type == "discover")
             {
-                await ProcessDiscover(envelope, connection);
+                await ProcessDiscover(envelope, connection, token);
                 return;
             }
 
@@ -167,16 +183,16 @@ namespace AeChat
             if (envelope.Type == "acknowledge")
             {
                 envelope.Data = null;
-                await SendTo(envelope);
-                await BroadcastLocation(session, connection);
+                SendTo(envelope);
+                BroadcastLocation(session);
             }
             else if (envelope.Type != null && RelayableTypes.Contains(envelope.Type))
             {
-                await SendTo(envelope);
+                SendTo(envelope);
             }
         }
 
-        private async Task ProcessDiscover(Envelope envelope, Connection connection)
+        private async Task ProcessDiscover(Envelope envelope, ClientConnection connection, CancellationToken token)
         {
             string sessionData;
             try
@@ -202,13 +218,16 @@ namespace AeChat
 
             if (existing == null)
             {
-                var session = AddConnection(envelope.RoomId, envelope.FromId, connection.Socket, sessionId);
-                if (session == null)
+                switch (AddConnection(envelope.RoomId, envelope.FromId, connection, sessionId, out var replaced))
                 {
-                    // That client ID is held by a different session
-                    return;
+                    case JoinResult.RoomFull:
+                        await connection.Socket.CloseAsync((WebSocketCloseStatus)RoomFullCloseStatus, "Room is full", token);
+                        return;
+                    case JoinResult.IdTaken:
+                        return;
                 }
-                connection.Session = session;
+
+                replaced?.Connection.Socket.Abort();
             }
 
             // The session ID is the secret that lets a reconnecting client reclaim its slot, so never pass it on
@@ -221,13 +240,13 @@ namespace AeChat
                 Data = null
             };
 
-            await Broadcast(announcement, connection.Socket);
-            await BroadcastLocation(connection.Session, connection);
+            Broadcast(announcement, connection);
+            BroadcastLocation(connection.Session);
         }
 
-        private async Task BroadcastLocation(ChatSession session, Connection connection)
+        private void BroadcastLocation(ChatSession session)
         {
-            var city = GetCity(connection.RemoteIp);
+            var city = GetCity(session.Connection.RemoteIp);
             if (city == null)
             {
                 return;
@@ -242,81 +261,117 @@ namespace AeChat
                 Type = "location"
             };
 
-            await Broadcast(locationEnvelope, connection.Socket);
+            Broadcast(locationEnvelope, session.Connection);
         }
 
-        // Returns the registered session, or null if the slot belongs to a different session
-        private ChatSession AddConnection(Guid roomId, Guid clientId, WebSocket socket, Guid sessionId)
+        private JoinResult AddConnection(Guid roomId, Guid clientId, ClientConnection connection, Guid sessionId, out ChatSession replaced)
         {
             var key = (roomId, clientId);
-            var session = new ChatSession
-            {
-                RoomId = roomId,
-                ClientId = clientId,
-                SessionId = sessionId,
-                Socket = socket
-            };
+            var now = DateTime.UtcNow;
+            replaced = null;
 
-            var result = sessions.AddOrUpdate(key, session, (_, existing) => existing.SessionId == sessionId ? session : existing);
-            return ReferenceEquals(result, session) ? session : null;
-        }
-
-        private async Task SendTo(Envelope envelope)
-        {
-            if (sessions.TryGetValue((envelope.RoomId, envelope.ToId), out var session))
+            lock (joinLock)
             {
-                await SendJson(session, envelope);
+                SweepReleasedIds(now);
+
+                if (sessions.TryGetValue(key, out var current))
+                {
+                    if (current.SessionId != sessionId)
+                    {
+                        return JoinResult.IdTaken;
+                    }
+                    replaced = current;
+                }
+                else
+                {
+                    if (releasedIds.TryGetValue(key, out var released) && released.Expires > now && released.SessionId != sessionId)
+                    {
+                        return JoinResult.IdTaken;
+                    }
+
+                    roomSizes.TryGetValue(roomId, out var size);
+                    if (size >= MaxClientsPerRoom)
+                    {
+                        return JoinResult.RoomFull;
+                    }
+                    roomSizes[roomId] = size + 1;
+                }
+
+                releasedIds.Remove(key);
+                var session = new ChatSession
+                {
+                    RoomId = roomId,
+                    ClientId = clientId,
+                    SessionId = sessionId,
+                    Connection = connection
+                };
+                sessions[key] = session;
+                connection.Session = session;
+                return JoinResult.Joined;
             }
         }
 
-        private async Task Broadcast(Envelope envelope, WebSocket excludeSocket)
+        private void SweepReleasedIds(DateTime now)
         {
+            if (now - lastReleasedIdSweep < TimeSpan.FromMinutes(1))
+            {
+                return;
+            }
+
+            lastReleasedIdSweep = now;
+            foreach (var key in releasedIds.Where(entry => entry.Value.Expires <= now).Select(entry => entry.Key).ToList())
+            {
+                releasedIds.Remove(key);
+            }
+        }
+
+        private void SendTo(Envelope envelope)
+        {
+            if (sessions.TryGetValue((envelope.RoomId, envelope.ToId), out var session))
+            {
+                session.Connection.Send(JsonSerializer.Serialize(envelope));
+            }
+        }
+
+        private void Broadcast(Envelope envelope, ClientConnection exclude)
+        {
+            var json = JsonSerializer.Serialize(envelope);
             foreach (var session in sessions.Values)
             {
-                if (session.RoomId == envelope.RoomId && session.Socket != excludeSocket)
+                if (session.RoomId == envelope.RoomId && session.Connection != exclude)
                 {
-                    await SendJson(session, envelope);
+                    session.Connection.Send(json);
                 }
             }
         }
 
-        private async Task SendJson(ChatSession session, object payload)
+        // Only if still current, so an old socket closing doesn't evict the client's new one
+        private void RemoveConnection(ClientConnection connection)
         {
-            var json = JsonSerializer.Serialize(payload);
-            try
+            var session = connection.Session;
+            if (session == null)
             {
-                await SendRaw(session.Socket, json);
-            }
-            catch (WebSocketException)
-            {
-                RemoveSession(session);
-            }
-        }
-
-        private static Task SendRaw(WebSocket socket, string json)
-        {
-            if (socket.State != WebSocketState.Open)
-            {
-                throw new WebSocketException("Socket is not open");
+                return;
             }
 
-            var bytes = Encoding.UTF8.GetBytes(json);
-            return socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
-
-        private void RemoveConnection(Connection connection)
-        {
-            if (connection.Session != null)
+            var key = (session.RoomId, session.ClientId);
+            lock (joinLock)
             {
-                RemoveSession(connection.Session);
-            }
-        }
+                if (!sessions.TryRemove(new KeyValuePair<(Guid, Guid), ChatSession>(key, session)))
+                {
+                    return;
+                }
 
-        // Only removes the entry if it still belongs to this session, so a client that has already
-        // reconnected on a new socket doesn't get evicted by its old one closing
-        private void RemoveSession(ChatSession session)
-        {
-            sessions.TryRemove(new KeyValuePair<(Guid, Guid), ChatSession>((session.RoomId, session.ClientId), session));
+                releasedIds[key] = (session.SessionId, DateTime.UtcNow + ReleasedIdHold);
+                if (roomSizes.TryGetValue(session.RoomId, out var size) && size > 1)
+                {
+                    roomSizes[session.RoomId] = size - 1;
+                }
+                else
+                {
+                    roomSizes.Remove(session.RoomId);
+                }
+            }
         }
     }
 }

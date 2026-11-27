@@ -1,8 +1,9 @@
 import { test, expect, Browser, BrowserType, Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
-const chromiumArgs = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'];
+const chromiumArgs = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required', '--mute-audio'];
 const firefoxPrefs = {
+    'media.volume_scale': '0.0',
     'media.navigator.streams.fake': true,
     'media.navigator.permission.disabled': true,
     'media.autoplay.default': 0,
@@ -117,7 +118,6 @@ test('settings are saved and restored, but camera and URL options are not', asyn
     await expect.poll(() => page.evaluate(() => localStorage.getItem('ae.directchat.settings')))
         .toBe(JSON.stringify({ AudioStereo: true, AudioGain: 3 }));
 
-    // Out-of-range and invalid stored values are clamped or dropped; URL options are ignored
     await page.evaluate(() => localStorage.setItem('ae.directchat.settings',
         JSON.stringify({ AudioStereo: true, AudioGain: 999, VideoResolution: '<b>x</b>', VideoEnabled: true })));
     await page.goto('/' + room + '?VideoEnabled=true&AudioGain=2');

@@ -5,6 +5,7 @@ services:
       - "${PORT:-8080}:8080"
     environment:
       - GEOIP_DB_PATH=/geoip/GeoLite2-City.mmdb
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
     volumes:
       - ./geoip:/geoip:ro
     restart: unless-stopped

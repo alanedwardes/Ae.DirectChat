@@ -11,6 +11,7 @@ export default defineConfig({
     webServer: {
         command: `dotnet run --no-launch-profile --urls http://localhost:${port}`,
         url: `http://localhost:${port}/healthz`,
+        env: { ALLOWED_ORIGINS: `http://localhost:${port}` },
         timeout: 180_000,
         reuseExistingServer: !process.env.CI,
     },
