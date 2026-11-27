@@ -176,3 +176,27 @@ test('only one window is open at a time on a phone', async ({ playwright }) => {
     await page.click('#attendeeWindowButton');
     await expect(page.locator('#attendeeWindow')).toBeHidden();
 });
+
+test('screen sharing starts inside the user gesture, as Safari requires', async ({ playwright }) => {
+    const page = await (await launch(playwright.chromium)).newPage();
+    await page.addInitScript(() => {
+        let inGesture = false;
+        window.addEventListener('change', () => inGesture = true, true);
+        window.addEventListener('change', () => inGesture = false);
+        navigator.mediaDevices.getDisplayMedia = () => {
+            if (!inGesture) {
+                return Promise.reject(new DOMException('getDisplayMedia must be called from a user gesture handler.', 'InvalidAccessError'));
+            }
+            const canvas = document.createElement('canvas');
+            canvas.getContext('2d')!.fillRect(0, 0, 10, 10);
+            return Promise.resolve(canvas.captureStream(5));
+        };
+    });
+    await page.goto('/' + randomUUID());
+    await page.click('#screenControlsButton');
+    await page.locator('#settingcheckboxScreenEnabled').setChecked(true);
+    await expect.poll(() => page.evaluate(() =>
+        ((document.querySelector('#localVideo') as HTMLVideoElement).srcObject as MediaStream)?.getVideoTracks().length ?? 0)).toBe(1);
+    await expect(page.locator('#settingcheckboxScreenEnabled')).toBeChecked();
+    await expect(page.locator('.messages')).not.toContainText('user gesture');
+});

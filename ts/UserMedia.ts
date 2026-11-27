@@ -198,7 +198,40 @@ export class UserMedia implements IUserMedia {
             return Promise.resolve();
         }
 
+        const changesMedia = Object.keys(changes).some(key =>
+            UserMedia.refreshSettingKeys.includes(key) && this.currentSettings[key]?.Value !== changes[key]);
+        const screenWanted = changes.hasOwnProperty("ScreenEnabled") ? changes["ScreenEnabled"] : this.currentSettings.ScreenEnabled.Value;
+        if (changesMedia && screenWanted) {
+            // Safari only allows getDisplayMedia synchronously inside the user's gesture, before any await
+            UserMedia.StopWhenReady(this.TakeDisplayRequest());
+            this.pendingDisplayRequest = UserMedia.RequestDisplayMedia(changes["VideoFrameRate"] ?? this.currentSettings.VideoFrameRate.Value);
+        }
+
         return this.Enqueue(() => this.ApplyChanges(changes));
+    }
+
+    private pendingDisplayRequest: Promise<MediaStream> = null;
+
+    private static RequestDisplayMedia(frameRate: number): Promise<MediaStream> {
+        let request: Promise<MediaStream>;
+        try {
+            request = navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: frameRate } } });
+        }
+        catch (err) {
+            request = Promise.reject(err);
+        }
+        request.catch((): void => undefined);
+        return request;
+    }
+
+    private TakeDisplayRequest(): Promise<MediaStream> {
+        const request = this.pendingDisplayRequest;
+        this.pendingDisplayRequest = null;
+        return request;
+    }
+
+    private static StopWhenReady(request: Promise<MediaStream>): void {
+        request?.then(stream => stream.getTracks().forEach(track => track.stop()), (): void => undefined);
     }
 
     public RestoreSettings(changes: SettingChanges): void {
@@ -365,7 +398,19 @@ export class UserMedia implements IUserMedia {
             constraints.video = videoConstraints;
         }
 
-        const stream: MediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const displayRequest = this.TakeDisplayRequest();
+        if (!this.currentSettings.ScreenEnabled.Value) {
+            UserMedia.StopWhenReady(displayRequest);
+        }
+
+        let stream: MediaStream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+        }
+        catch (err) {
+            UserMedia.StopWhenReady(displayRequest);
+            throw err;
+        }
 
         const audioTracks: MediaStreamTrack[] = stream.getAudioTracks();
         console.assert(audioTracks.length == 1, "Expected 1 audio track, there are " + audioTracks.length);
@@ -374,12 +419,7 @@ export class UserMedia implements IUserMedia {
         if (this.currentSettings.ScreenEnabled.Value) {
             let screenStream: MediaStream;
             try {
-                // @ts-ignore
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: { ideal: this.currentSettings.VideoFrameRate.Value }
-                    }
-                });
+                screenStream = await (displayRequest ?? UserMedia.RequestDisplayMedia(this.currentSettings.VideoFrameRate.Value));
             }
             catch (err) {
                 stream.getTracks().forEach(track => track.stop());

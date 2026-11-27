@@ -57,6 +57,15 @@ export class MainUI {
 
         window.onmousemove = () => ShowControls();
         window.ontouchstart = () => ShowControls();
+
+        for (const gesture of ['gesturestart', 'gesturechange', 'gestureend']) {
+            document.addEventListener(gesture, event => event.preventDefault());
+        }
+        document.addEventListener('touchmove', event => {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
         window.addEventListener('keydown', () => ShowControls());
         window.addEventListener('focusin', () => ShowControls());
 
