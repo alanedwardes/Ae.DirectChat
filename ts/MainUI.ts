@@ -1,6 +1,7 @@
 import { ChatApp } from "./ChatApp.js";
 import { IUserMediaSettings, IUserMediaSetting, SettingChanges, UserMediaSettingsRange, UserSettingsSelection, UserMediaSettingType, IUserMedia } from "./UserMedia.js";
 import { loadSettings, saveSettings, defaultSettings } from "./SettingsStore.js";
+import { WindowManager } from "./WindowManager.js";
 
 class RemoteMedia {
     public Element: HTMLDivElement;
@@ -264,20 +265,16 @@ export class MainUI {
         resetParagraph.appendChild(resetButton);
         document.querySelector('#audioParameters').appendChild(resetParagraph);
 
-        document.querySelectorAll<HTMLButtonElement>('.controls button[data-panel]').forEach(button => {
-            button.setAttribute('aria-pressed', 'false');
-            button.addEventListener('click', () => this.togglePanel(button.dataset.panel));
-        });
-
-        document.querySelectorAll('.window > .closeButton').forEach(element => {
-            element.addEventListener('click', () => this.showPanel(null));
-        });
-
-        window.addEventListener('keydown', event => {
-            if (event.key === 'Escape') {
-                this.showPanel(null);
+        const windows = new WindowManager();
+        windows.OnOpened = id => {
+            if (id === 'audioControls') {
+                this.drawAudioVisualisations();
             }
-        });
+            else if (id === 'logWindow') {
+                const logBody = document.querySelector('#logWindow .windowBody');
+                logBody.scrollTop = logBody.scrollHeight;
+            }
+        };
 
         const portrait = window.matchMedia('(orientation: portrait)');
         const relayout = () => this.flowRemoteVideo();
@@ -288,32 +285,10 @@ export class MainUI {
         }
     }
 
-    private openPanelId: string = null;
-
-    public togglePanel(panelId: string): void {
-        this.showPanel(this.openPanelId === panelId ? null : panelId);
-    }
-
-    public showPanel(panelId: string): void {
-        this.openPanelId = panelId;
-
-        document.querySelectorAll<HTMLElement>('#panels > .window').forEach(panel => panel.classList.toggle('hidden', panel.id !== panelId));
-        document.querySelectorAll<HTMLButtonElement>('.controls button[data-panel]').forEach(button =>
-            button.setAttribute('aria-pressed', String(button.dataset.panel === panelId)));
-        document.body.classList.toggle('panelOpen', panelId != null);
-
-        if (panelId === 'audioControls') {
-            this.drawAudioVisualisations();
-        }
-        else if (panelId === 'logWindow') {
-            const logWindow = document.querySelector('#logWindow');
-            logWindow.scrollTop = logWindow.scrollHeight;
-        }
-    }
-
     private static readonly maxLogItems: number = 500;
     private logList: HTMLOListElement;
     private logWindow: HTMLElement;
+    private logBody: HTMLElement;
     private pendingLogItems: HTMLLIElement[] = [];
     private logFlushHandle: number = 0;
     private logItemCount: number = 0;
@@ -341,6 +316,7 @@ export class MainUI {
         if (this.logList == null) {
             this.logList = document.querySelector('#logList');
             this.logWindow = document.querySelector('#logWindow');
+            this.logBody = document.querySelector('#logWindow .windowBody');
         }
 
         this.logList.append(...this.pendingLogItems);
@@ -352,7 +328,7 @@ export class MainUI {
         }
 
         if (!this.logWindow.classList.contains('hidden')) {
-            this.logWindow.scrollTop = this.logWindow.scrollHeight;
+            this.logBody.scrollTop = this.logBody.scrollHeight;
         }
     }
 

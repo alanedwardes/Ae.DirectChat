@@ -199,19 +199,69 @@ body.panelOpen .controls.faded {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    gap: var(--gap);
 }
 
 .window {
     pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 auto;
+    min-height: 0;
     max-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    overflow: hidden;
     background: rgba(50, 50, 50, 0.95);
     border: 1px solid var(--border);
     border-radius: 12px;
     box-shadow: rgba(0, 0, 0, 0.5) 0 0 25px;
-    padding: 1rem;
+}
+
+.windowHeader {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.25rem 0.25rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.windowHeader h1 {
+    margin: 0;
+}
+
+.windowHeader .closeButton {
+    float: none;
+    margin: 0;
+}
+
+.windowBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0.5rem 1rem 1rem 1rem;
+}
+
+@media (pointer: fine) and (min-width: 641px) {
+    .windowHeader {
+        cursor: grab;
+        touch-action: none;
+    }
+
+    .window.dragging .windowHeader {
+        cursor: grabbing;
+    }
+
+    .window.placed {
+        position: fixed;
+        left: var(--x);
+        top: var(--y);
+        width: min(400px, calc(100vw - var(--gap) * 2));
+        max-height: calc(100vh - var(--y) - var(--gap));
+    }
 }
 
 .closeButton {

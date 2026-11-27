@@ -17,30 +17,50 @@
 
     <div id="panels">
         <section id="audioControls" class="window hidden" aria-label="Audio">
-            <button class="closeButton" aria-label="Close">✕</button>
-            <h1>🎤 Audio</h1>
-            <canvas id="volumeHistogramCanvas" width="465" height="64"></canvas>
-            <form id="audioParameters"></form>
+            <header class="windowHeader">
+                <h1>🎤 Audio</h1>
+                <button class="closeButton" aria-label="Close">✕</button>
+            </header>
+            <div class="windowBody">
+                <canvas id="volumeHistogramCanvas" width="465" height="64"></canvas>
+                <form id="audioParameters"></form>
+            </div>
         </section>
         <section id="videoControls" class="window hidden" aria-label="Video">
-            <button class="closeButton" aria-label="Close">✕</button>
-            <h1>📷 Video</h1>
-            <form id="videoParameters"></form>
+            <header class="windowHeader">
+                <h1>📷 Video</h1>
+                <button class="closeButton" aria-label="Close">✕</button>
+            </header>
+            <div class="windowBody">
+                <form id="videoParameters"></form>
+            </div>
         </section>
         <section id="screenControls" class="window hidden" aria-label="Screen">
-            <button class="closeButton" aria-label="Close">✕</button>
-            <h1>🖥️ Screen</h1>
-            <form id="screenParameters"></form>
+            <header class="windowHeader">
+                <h1>🖥️ Screen</h1>
+                <button class="closeButton" aria-label="Close">✕</button>
+            </header>
+            <div class="windowBody">
+                <form id="screenParameters"></form>
+            </div>
         </section>
         <section id="attendeeWindow" class="window hidden" aria-label="Attendees">
-            <button class="closeButton" aria-label="Close">✕</button>
-            <h1>🧍 Attendees</h1>
-            <ol id="attendeeList"></ol>
+            <header class="windowHeader">
+                <h1>🧍 Attendees</h1>
+                <button class="closeButton" aria-label="Close">✕</button>
+            </header>
+            <div class="windowBody">
+                <ol id="attendeeList"></ol>
+            </div>
         </section>
         <section id="logWindow" class="window hidden" aria-label="Logs">
-            <button class="closeButton" aria-label="Close">✕</button>
-            <h1>📜 Logs</h1>
-            <ol id="logList"></ol>
+            <header class="windowHeader">
+                <h1>📜 Logs</h1>
+                <button class="closeButton" aria-label="Close">✕</button>
+            </header>
+            <div class="windowBody">
+                <ol id="logList"></ol>
+            </div>
         </section>
     </div>
 

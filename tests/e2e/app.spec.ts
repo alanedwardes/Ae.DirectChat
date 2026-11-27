@@ -134,3 +134,45 @@ test('settings are saved and restored, but camera and URL options are not', asyn
     await expect(page.locator('#settingrangeAudioGain')).toHaveValue('1');
     await expect.poll(() => page.evaluate(() => localStorage.getItem('ae.directchat.settings'))).toBeNull();
 });
+
+test('windows keep their header in view, can be dragged on desktop and remember where they were', async ({ playwright }) => {
+    const page = await join(playwright.chromium, randomUUID());
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.click('#audioControlsButton');
+    await page.click('#attendeeWindowButton');
+    await expect(page.locator('#audioControls')).toBeVisible();
+    await expect(page.locator('#attendeeWindow')).toBeVisible();
+
+    const close = page.locator('#audioControls .closeButton');
+    const before = await close.boundingBox();
+    await page.locator('#audioControls .windowBody').evaluate(body => body.scrollTop = body.scrollHeight);
+    expect(await close.boundingBox()).toEqual(before);
+
+    const header = await page.locator('#audioControls h1').boundingBox();
+    await page.mouse.move(header!.x + 5, header!.y + 5);
+    await page.mouse.down();
+    await page.mouse.move(300, 200, { steps: 5 });
+    await page.mouse.up();
+    const moved = await page.locator('#audioControls').boundingBox();
+    expect(Math.abs(moved!.y - 200)).toBeLessThan(40);
+    expect(moved!.x).toBeLessThan(320);
+
+    await page.reload();
+    await page.click('#audioControlsButton');
+    expect(await page.locator('#audioControls').boundingBox()).toEqual(moved);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#audioControls')).toBeHidden();
+});
+
+test('only one window is open at a time on a phone', async ({ playwright }) => {
+    const browser = await launch(playwright.chromium);
+    const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
+    await page.goto('/' + randomUUID());
+    await page.click('#audioControlsButton');
+    await page.click('#attendeeWindowButton');
+    await expect(page.locator('#audioControls')).toBeHidden();
+    await expect(page.locator('#attendeeWindow')).toBeVisible();
+    await page.click('#attendeeWindowButton');
+    await expect(page.locator('#attendeeWindow')).toBeHidden();
+});
